@@ -1,443 +1,3 @@
-// main.ts - Versión Final Corregida con Sincronización Bidireccional
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, MarkdownFileInfo, TFile } from 'obsidian';
-
-interface TodoistPluginSettings {
-    apiToken: string;
-    defaultProject: string;
-    taskTemplate: string;
-    insertTaskInNote: boolean;
-    taskNoteTemplate: string;
-    autoRefresh: boolean;
-    refreshInterval: number;
-    language: 'en' | 'es';
-    enableSync: boolean;
-    syncInterval: number;
-    defaultTime: string;
-    defaultDuration: number;
-}
-
-const DEFAULT_SETTINGS: TodoistPluginSettings = {
-    apiToken: '',
-    defaultProject: '',
-    taskTemplate: '{{content}}',
-    insertTaskInNote: true,
-    taskNoteTemplate: '- [ ] {{content}} [📋]({{url}}) {{priority}} {{labels}} {{due}} {{description}} #tasktodo',
-    autoRefresh: false,
-    refreshInterval: 300,
-    language: 'es',
-    enableSync: true,
-    syncInterval: 60,
-    defaultTime: '08:00',
-    defaultDuration: 60
-}
-
-// Traducciones
-const translations = {
-    en: {
-        'createTask': 'Create Todoist Task',
-        'taskContent': 'Task Content',
-        'taskContentPlaceholder': 'Write your task content...',
-        'description': 'Description (optional)',
-        'descriptionPlaceholder': 'Additional task description...',
-        'project': 'Project',
-        'inbox': 'Inbox',
-        'priority': 'Priority',
-        'deadline': 'Deadline',
-        'dueTime': 'Due Time (optional)',
-        'duration': 'Duration (optional)',
-        'reminder': 'Reminder (optional)',
-        'labels': 'Labels',
-        'insertInNote': 'Insert reference in current note',
-        'cancel': 'Cancel',
-        'createTaskBtn': 'Create Task',
-        'selectDate': 'Select Date',
-        'selectTime': 'Select Time',
-        'selectDuration': 'Select Duration',
-        'noReminder': 'No reminder',
-        'noDuration': 'No duration',
-        'p1Urgent': 'P1 - Urgent',
-        'p2High': 'P2 - High',
-        'p3Medium': 'P3 - Medium',
-        'p4Low': 'P4 - Low',
-        '5minBefore': '5 minutes before',
-        '15minBefore': '15 minutes before',
-        '30minBefore': '30 minutes before',
-        '1hourBefore': '1 hour before',
-        '2hoursBefore': '2 hours before',
-        '1dayBefore': '1 day before',
-        'createTaskCommand': 'Create Todoist task',
-        'createFromSelection': 'Create task from selection',
-        'settingsTitle': 'Todoist Configuration',
-        'apiToken': 'API Token',
-        'apiTokenDesc': 'Your Todoist API token. Click to configure.',
-        'defaultProject': 'Default Project',
-        'defaultProjectDesc': 'Default project ID for new tasks (optional)',
-        'taskTemplate': 'Task template in note',
-        'taskTemplateDesc': 'Format of text inserted in note. Use {{content}}, {{url}}, {{id}}, {{priority}}, {{labels}}, {{due}}, {{description}}',
-        'insertByDefault': 'Insert in note by default',
-        'insertByDefaultDesc': 'Always insert task reference in current note',
-        'autoRefresh': 'Auto refresh',
-        'autoRefreshDesc': 'Automatically refresh projects and labels',
-        'refreshInterval': 'Refresh interval (seconds)',
-        'refreshIntervalDesc': 'How often to refresh data from Todoist',
-        'language': 'Language',
-        'languageDesc': 'Plugin interface language',
-        'configureToken': 'Configure API Token',
-        'taskCreated': 'Task created',
-        'configureApiFirst': 'Configure your Todoist API token first',
-        'selectTextFirst': 'Select text to create a task',
-        'enterTaskContent': 'Enter task content',
-        'errorCreatingTask': 'Error creating task',
-        'tokenModalTitle': 'Configure Todoist API Token',
-        'tokenModalDesc': 'Get your API token from Todoist integrations settings',
-        'tokenPlaceholder': 'Enter your API token...',
-        'getTokenLink': 'Get your token here',
-        'save': 'Save',
-        'tokenSaved': 'API token saved successfully',
-        'creating': 'Creating task...',
-        'enableSync': 'Enable synchronization',
-        'enableSyncDesc': 'Sync task status between Obsidian and Todoist',
-        'syncInterval': 'Sync interval (seconds)',
-        'syncIntervalDesc': 'How often to check for task updates',
-        'defaultTime': 'Default time',
-        'defaultTimeDesc': 'Default time when creating tasks with due date',
-        'defaultDuration': 'Default duration (minutes)',
-        'defaultDurationDesc': 'Default task duration in minutes',
-        'taskCompleted': 'Task completed in Todoist',
-        'taskUncompleted': 'Task reopened in Todoist',
-        'syncError': 'Sync error',
-        'apiStatus': 'API Connection Status',
-        'apiConnected': 'Connected',
-        'apiDisconnected': 'Disconnected',
-        'testConnection': 'Test Connection',
-        'today': 'Today',
-        'tomorrow': 'Tomorrow',
-        'thisWeek': 'This Week',
-        'nextWeek': 'Next Week',
-        'customDate': 'Custom Date',
-        'repeatTask': 'Repeat Task',
-        'noRepeat': 'No repeat',
-        'daily': 'Daily',
-        'weekly': 'Weekly (same day)',
-        'weekdays': 'Weekdays (Mon-Fri)',
-        'monthly': 'Monthly',
-        'yearly': 'Yearly',
-        '15min': '15 minutes',
-        '30min': '30 minutes',
-        '45min': '45 minutes',
-        '1hour': '1 hour',
-        '1hour30min': '1 hour 30 minutes',
-        '2hours': '2 hours',
-        '2hours30min': '2 hours 30 minutes',
-        '3hours': '3 hours',
-        '4hours': '4 hours',
-        '5hours': '5 hours',
-        '6hours': '6 hours',
-        '7hours': '7 hours',
-        '8hours': '8 hours'
-    },
-    es: {
-        'createTask': 'Crear Tarea en Todoist',
-        'taskContent': 'Contenido de la Tarea',
-        'taskContentPlaceholder': 'Escribe el contenido de tu tarea...',
-        'description': 'Descripción (opcional)',
-        'descriptionPlaceholder': 'Descripción adicional de la tarea...',
-        'project': 'Proyecto',
-        'inbox': 'Bandeja de Entrada',
-        'priority': 'Prioridad',
-        'deadline': 'Fecha Límite',
-        'dueTime': 'Hora Límite (opcional)',
-        'duration': 'Duración (opcional)',
-        'reminder': 'Recordatorio (opcional)',
-        'labels': 'Etiquetas',
-        'insertInNote': 'Insertar referencia en la nota actual',
-        'cancel': 'Cancelar',
-        'createTaskBtn': 'Crear Tarea',
-        'selectDate': 'Seleccionar Fecha',
-        'selectTime': 'Seleccionar Hora',
-        'selectDuration': 'Seleccionar Duración',
-        'noReminder': 'Sin recordatorio',
-        'noDuration': 'Sin duración',
-        'p1Urgent': 'P1 - Urgente',
-        'p2High': 'P2 - Alta',
-        'p3Medium': 'P3 - Media',
-        'p4Low': 'P4 - Baja',
-        '5minBefore': '5 minutos antes',
-        '15minBefore': '15 minutos antes',
-        '30minBefore': '30 minutos antes',
-        '1hourBefore': '1 hora antes',
-        '2hoursBefore': '2 horas antes',
-        '1dayBefore': '1 día antes',
-        'createTaskCommand': 'Crear tarea en Todoist',
-        'createFromSelection': 'Crear tarea desde selección',
-        'settingsTitle': 'Configuración de Todoist',
-        'apiToken': 'Token de API',
-        'apiTokenDesc': 'Tu token de API de Todoist. Haz clic para configurar.',
-        'defaultProject': 'Proyecto por Defecto',
-        'defaultProjectDesc': 'ID del proyecto donde se crearán las tareas por defecto (opcional)',
-        'taskTemplate': 'Plantilla de tarea en nota',
-        'taskTemplateDesc': 'Formato del texto que se insertará en la nota. Usa {{content}}, {{url}}, {{id}}, {{priority}}, {{labels}}, {{due}}, {{description}}',
-        'insertByDefault': 'Insertar en nota por defecto',
-        'insertByDefaultDesc': 'Siempre insertar referencia de la tarea en la nota actual',
-        'autoRefresh': 'Actualización automática',
-        'autoRefreshDesc': 'Actualizar automáticamente proyectos y etiquetas',
-        'refreshInterval': 'Intervalo de actualización (segundos)',
-        'refreshIntervalDesc': 'Cada cuánto tiempo actualizar datos de Todoist',
-        'language': 'Idioma',
-        'languageDesc': 'Idioma de la interfaz del plugin',
-        'configureToken': 'Configurar Token de API',
-        'taskCreated': 'Tarea creada',
-        'configureApiFirst': 'Configura tu token de API de Todoist primero',
-        'selectTextFirst': 'Selecciona texto para crear una tarea',
-        'enterTaskContent': 'Ingresa el contenido de la tarea',
-        'errorCreatingTask': 'Error al crear tarea',
-        'tokenModalTitle': 'Configurar Token de API de Todoist',
-        'tokenModalDesc': 'Obtén tu token de API desde las configuraciones de integraciones de Todoist',
-        'tokenPlaceholder': 'Ingresa tu token de API...',
-        'getTokenLink': 'Obtén tu token aquí',
-        'save': 'Guardar',
-        'tokenSaved': 'Token de API guardado exitosamente',
-        'creating': 'Creando tarea...',
-        'enableSync': 'Habilitar sincronización',
-        'enableSyncDesc': 'Sincronizar estado de tareas entre Obsidian y Todoist',
-        'syncInterval': 'Intervalo de sincronización (segundos)',
-        'syncIntervalDesc': 'Cada cuánto tiempo verificar actualizaciones de tareas',
-        'defaultTime': 'Hora por defecto',
-        'defaultTimeDesc': 'Hora predeterminada al crear tareas con fecha límite',
-        'defaultDuration': 'Duración por defecto (minutos)',
-        'defaultDurationDesc': 'Duración predeterminada de tareas en minutos',
-        'taskCompleted': 'Tarea completada en Todoist',
-        'taskUncompleted': 'Tarea reabierta en Todoist',
-        'syncError': 'Error de sincronización',
-        'apiStatus': 'Estado de Conexión API',
-        'apiConnected': 'Conectado',
-        'apiDisconnected': 'Desconectado',
-        'testConnection': 'Probar Conexión',
-        'today': 'Hoy',
-        'tomorrow': 'Mañana',
-        'thisWeek': 'Esta Semana',
-        'nextWeek': 'Próxima Semana',
-        'customDate': 'Fecha Personalizada',
-        'repeatTask': 'Repetir Tarea',
-        'noRepeat': 'No repetir',
-        'daily': 'Diariamente',
-        'weekly': 'Semanalmente (mismo día)',
-        'weekdays': 'Días laborales (Lun-Vie)',
-        'monthly': 'Mensualmente',
-        'yearly': 'Anualmente',
-        '15min': '15 minutos',
-        '30min': '30 minutos',
-        '45min': '45 minutos',
-        '1hour': '1 hora',
-        '1hour30min': '1 hora 30 minutos',
-        '2hours': '2 horas',
-        '2hours30min': '2 horas 30 minutos',
-        '3hours': '3 horas',
-        '4hours': '4 horas',
-        '5hours': '5 horas',
-        '6hours': '6 horas',
-        '7hours': '7 horas',
-        '8hours': '8 horas'
-    }
-};
-
-interface TodoistTask {
-    id: string;
-    content: string;
-    description: string;
-    project_id: string;
-    url: string;
-    priority: number;
-    labels: string[];
-    is_completed: boolean;
-    due?: {
-        date: string;
-        string: string;
-        datetime?: string;
-        recurring?: boolean;
-    };
-    duration?: {
-        amount: number;
-        unit: string;
-    };
-}
-
-interface TodoistProject {
-    id: string;
-    name: string;
-    color: string;
-}
-
-interface TodoistLabel {
-    id: string;
-    name: string;
-    color: string;
-}
-
-interface TaskCreationData {
-    content: string;
-    description?: string;
-    project_id?: string;
-    due_date?: string;
-    due_datetime?: string;
-    due_string?: string;
-    priority: number;
-    labels: string[];
-    reminder?: string;
-    duration?: number;
-    duration_unit?: string;
-}
-
-interface TaskMapping {
-    todoistId: string;
-    file: string;
-    line: number;
-    lineContent: string; // Agregar contenido de línea para mejor detección
-}
-
-export default class TodoistPlugin extends Plugin {
-    settings: TodoistPluginSettings;
-    refreshInterval: NodeJS.Timeout | null = null;
-    syncInterval: NodeJS.Timeout | null = null;
-    
-    // Cache optimizado
-    private projectsCache: TodoistProject[] = [];
-    private labelsCache: TodoistLabel[] = [];
-    private lastFetch: number = 0;
-    private cacheDuration: number = 5 * 60 * 1000;
-    
-    // Mapeo de tareas para sincronización mejorado
-    private taskMappings: Map<string, TaskMapping> = new Map();
-    public apiStatus: boolean = false;
-
-    // Debounce para cambios del editor
-    private debounceTimeout: NodeJS.Timeout | null = null;
-
-    async onload() {
-        await this.loadSettings();
-        await this.loadTaskMappings();
-
-        this.addCommand({
-            id: 'create-todoist-task',
-            name: this.t('createTaskCommand'),
-            callback: () => {
-                new CreateTaskModal(this.app, this).open();
-            }
-        });
-
-        this.addCommand({
-            id: 'create-task-from-selection',
-            name: this.t('createFromSelection'),
-            editorCallback: (editor: Editor) => {
-                const selection = editor.getSelection();
-                if (selection) {
-                    this.createTaskFromText(selection);
-                } else {
-                    new Notice(this.t('selectTextFirst'));
-                }
-            }
-        });
-
-        this.addSettingTab(new TodoistSettingTab(this.app, this));
-
-        if (this.settings.autoRefresh) {
-            this.startAutoRefresh();
-        }
-
-        if (this.settings.enableSync) {
-            this.startSync();
-        }
-
-        // Escuchar cambios en archivos para detectar checkboxes - MEJORADO
-        this.registerEvent(
-            this.app.workspace.on('editor-change', (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
-                if (this.settings.enableSync && view instanceof MarkdownView) {
-                    this.debounceEditorChange(editor, view);
-                }
-            })
-        );
-
-        // También escuchar cambios en archivos (para cambios desde vista previa)
-        this.registerEvent(
-            this.app.vault.on('modify', (file: TFile) => {
-                if (this.settings.enableSync && file.extension === 'md') {
-                    this.debounceFileChange(file);
-                }
-            })
-        );
-
-        this.preloadData();
-        this.testApiConnection();
-    }
-
-    onunload() {
-        this.stopAutoRefresh();
-        this.stopSync();
-        this.saveTaskMappings();
-    }
-
-    t(key: string): string {
-        return translations[this.settings.language][key] || key;
-    }
-
-    // Debounce mejorado para cambios del editor
-    private debounceEditorChange(editor: Editor, view: MarkdownView) {
-        if (this.debounceTimeout) {
-            clearTimeout(this.debounceTimeout);
-        }
-        this.debounceTimeout = setTimeout(() => {
-            this.handleEditorChange(editor, view);
-        }, 1000); // Aumentar a 1 segundo para mejor estabilidad
-    }
-
-    // Nuevo: Debounce para cambios de archivo
-    private debounceFileChange(file: TFile) {
-        if (this.debounceTimeout) {
-            clearTimeout(this.debounceTimeout);
-        }
-        this.debounceTimeout = setTimeout(() => {
-            this.handleFileChange(file);
-        }, 1000);
-    }
-
-    async testApiConnection(): Promise<boolean> {
-        if (!this.settings.apiToken) {
-            this.apiStatus = false;
-            return false;
-        }
-
-        try {
-            const response = await fetch('https://api.todoist.com/rest/v2/projects', {
-                headers: {
-                    'Authorization': `Bearer ${this.settings.apiToken}`
-                },
-                body: JSON.stringify({
-                    item_id: taskId,
-                    due: { string: reminderTime }
-                })
-            });
-
-            if (!response.ok) {
-                console.warn('Error creating reminder:', response.status);
-            }
-        } catch (error) {
-            console.warn('Error creating reminder:', error);
-        }
-    }
-
-    async insertTaskInCurrentNote(task: TodoistTask) {
-        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (!activeView) {
-            return;
-        }
-
-        const editor = activeView.editor;
-        const cursor = editor.getCursor();
-        
-        const priorityText = this.getPriorityTextWithColor(task.priority);
-        const labelsText = task.labels && task.labels.length > 0 ? 
-            task.labels.map(label => {
-                const labelColor = this.getLabelColor(label);
                 return `<span class="todoist-label" style="background-color: ${labelColor}20; border-color: ${labelColor}; color: var(--text-normal);">${label}</span>`;
             }).join(' ') : '';
         const dueText = task.due ? `<span class="todoist-due">${task.due.string}</span>` : '';
@@ -456,7 +16,6 @@ export default class TodoistPlugin extends Plugin {
         
         editor.replaceRange(finalText + '\n', cursor);
         
-        // MEJORADO: Guardar mapping para sincronización con contenido de línea
         if (this.settings.enableSync) {
             const file = activeView.file;
             if (file) {
@@ -556,7 +115,7 @@ export default class TodoistPlugin extends Plugin {
     }
 }
 
-// Modal para configurar API Token con indicador de estado
+// Modal para configurar API Token
 class ApiTokenModal extends Modal {
     plugin: TodoistPlugin;
     tokenInput: HTMLInputElement;
@@ -571,7 +130,6 @@ class ApiTokenModal extends Modal {
         const { contentEl } = this;
         contentEl.createEl('h2', { text: this.plugin.t('tokenModalTitle') });
 
-        // Indicador de estado
         const statusContainer = contentEl.createDiv({ cls: 'api-status-container' });
         statusContainer.createEl('span', { text: this.plugin.t('apiStatus') + ': ' });
         this.statusIndicator = statusContainer.createEl('span', { 
@@ -664,7 +222,7 @@ class ApiTokenModal extends Modal {
     }
 }
 
-// Modal mejorado para seleccionar fecha con repetición integrada
+// Modal para seleccionar fecha
 class DatePickerModal extends Modal {
     plugin: TodoistPlugin;
     onDateSelect: (date: string, repeat?: string) => void;
@@ -680,7 +238,6 @@ class DatePickerModal extends Modal {
         const { contentEl } = this;
         contentEl.createEl('h3', { text: this.plugin.t('deadline'), cls: 'modal-title' });
 
-        // Opciones rápidas
         const quickOptions = contentEl.createDiv({ cls: 'date-quick-options' });
         
         const today = new Date();
@@ -711,10 +268,8 @@ class DatePickerModal extends Modal {
             });
         });
 
-        // Separador
         contentEl.createEl('hr', { cls: 'date-separator' });
         
-        // Repetición
         const repeatContainer = contentEl.createDiv({ cls: 'repeat-container' });
         repeatContainer.createEl('label', { text: this.plugin.t('repeatTask') + ':' });
         
@@ -738,7 +293,6 @@ class DatePickerModal extends Modal {
             this.selectedRepeat = (e.target as HTMLSelectElement).value;
         });
         
-        // Texto para calendario personalizado
         contentEl.createEl('p', { 
             text: this.plugin.t('customDate'),
             cls: 'date-custom-label'
@@ -756,7 +310,6 @@ class DatePickerModal extends Modal {
     }
 
     renderCalendar(container: HTMLElement, month: number, year: number) {
-        // Limpiar calendario anterior si existe
         const existingCalendar = container.querySelector('.calendar-container');
         if (existingCalendar) {
             existingCalendar.remove();
@@ -800,12 +353,10 @@ class DatePickerModal extends Modal {
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const today = new Date();
 
-        // Días vacíos al inicio
         for (let i = 0; i < firstDay; i++) {
             calendarEl.createDiv({ cls: 'calendar-day-empty' });
         }
 
-        // Días del mes
         for (let day = 1; day <= daysInMonth; day++) {
             const dayEl = calendarEl.createEl('div', { text: day.toString(), cls: 'calendar-day' });
 
@@ -828,7 +379,6 @@ class DatePickerModal extends Modal {
             });
         }
 
-        // Botón cancelar
         const cancelButton = calendarContainer.createEl('button', { 
             text: this.plugin.t('cancel'),
             cls: 'calendar-cancel-button'
@@ -842,7 +392,7 @@ class DatePickerModal extends Modal {
     }
 }
 
-// Modal mejorado para seleccionar hora con hora actual
+// Modal para seleccionar hora
 class TimePickerModal extends Modal {
     plugin: TodoistPlugin;
     onTimeSelect: (time: string) => void;
@@ -863,7 +413,6 @@ class TimePickerModal extends Modal {
         const currentHour = currentTime.getHours();
         const currentMinute = Math.floor(currentTime.getMinutes() / 15) * 15;
 
-        // Generar horarios cada 15 minutos
         for (let hour = 0; hour < 24; hour++) {
             for (let minute = 0; minute < 60; minute += 15) {
                 const timeString = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -878,10 +427,8 @@ class TimePickerModal extends Modal {
 
                 const timeEl = timeContainer.createEl('div', { text: displayTime, cls: 'time-option' });
 
-                // Destacar la hora actual
                 if (hour === currentHour && minute === currentMinute) {
                     timeEl.addClass('time-option-current');
-                    // Hacer scroll a la hora actual
                     setTimeout(() => {
                         timeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }, 100);
@@ -1294,7 +841,6 @@ class CreateTaskModal extends Modal {
                 reminder: this.reminderTime
             };
 
-            // Manejar fecha y hora con repetición
             if (this.dueDate) {
                 let dueString = this.dueDate;
                 
@@ -1309,7 +855,6 @@ class CreateTaskModal extends Modal {
                 taskData.due_string = dueString;
             }
 
-            // Agregar duración si está establecida
             if (this.taskDuration > 0) {
                 taskData.duration = this.taskDuration;
                 taskData.duration_unit = 'minute';
@@ -1367,7 +912,6 @@ class LabelsPickerModal extends Modal {
                 cls: 'label-picker-button'
             });
 
-            // Aplicar colores de la etiqueta
             labelButton.style.borderColor = label.color || '#ccc';
             labelButton.style.backgroundColor = this.tempSelectedLabels.includes(label.name) 
                 ? `${label.color}20` 
@@ -1379,12 +923,10 @@ class LabelsPickerModal extends Modal {
 
             labelButton.addEventListener('click', () => {
                 if (this.tempSelectedLabels.includes(label.name)) {
-                    // Remover etiqueta
                     this.tempSelectedLabels = this.tempSelectedLabels.filter(l => l !== label.name);
                     labelButton.removeClass('selected');
                     labelButton.style.backgroundColor = 'transparent';
                 } else {
-                    // Agregar etiqueta
                     this.tempSelectedLabels.push(label.name);
                     labelButton.addClass('selected');
                     labelButton.style.backgroundColor = `${label.color}20`;
@@ -1392,7 +934,6 @@ class LabelsPickerModal extends Modal {
             });
         });
 
-        // Botones de acción
         const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
 
         const cancelButton = buttonContainer.createEl('button', { 
@@ -1432,12 +973,10 @@ class TodoistSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h2', { text: this.plugin.t('settingsTitle') });
 
-        // Token API con indicador de estado
         const apiSetting = new Setting(containerEl)
             .setName(this.plugin.t('apiToken'))
             .setDesc(this.plugin.t('apiTokenDesc'));
 
-        // Crear contenedor para el botón y el indicador
         const apiContainer = apiSetting.controlEl.createDiv({ cls: 'api-setting-container' });
         
         const configButton = apiContainer.createEl('button', { text: this.plugin.t('configureToken') });
@@ -1450,7 +989,6 @@ class TodoistSettingTab extends PluginSettingTab {
             text: this.plugin.apiStatus ? ' ✓ ' + this.plugin.t('apiConnected') : ' ✗ ' + this.plugin.t('apiDisconnected')
         });
 
-        // Idioma
         new Setting(containerEl)
             .setName(this.plugin.t('language'))
             .setDesc(this.plugin.t('languageDesc'))
@@ -1464,7 +1002,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     this.display();
                 }));
 
-        // Sincronización
         new Setting(containerEl)
             .setName(this.plugin.t('enableSync'))
             .setDesc(this.plugin.t('enableSyncDesc'))
@@ -1476,7 +1013,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     this.display();
                 }));
 
-        // Intervalo de sincronización
         if (this.plugin.settings.enableSync) {
             new Setting(containerEl)
                 .setName(this.plugin.t('syncInterval'))
@@ -1491,7 +1027,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     }));
         }
 
-        // Hora por defecto
         new Setting(containerEl)
             .setName(this.plugin.t('defaultTime'))
             .setDesc(this.plugin.t('defaultTimeDesc'))
@@ -1503,7 +1038,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // Duración por defecto
         new Setting(containerEl)
             .setName(this.plugin.t('defaultDuration'))
             .setDesc(this.plugin.t('defaultDurationDesc'))
@@ -1516,7 +1050,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // Auto refresh
         new Setting(containerEl)
             .setName(this.plugin.t('autoRefresh'))
             .setDesc(this.plugin.t('autoRefreshDesc'))
@@ -1542,7 +1075,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     }));
         }
 
-        // Proyecto por defecto
         new Setting(containerEl)
             .setName(this.plugin.t('defaultProject'))
             .setDesc(this.plugin.t('defaultProjectDesc'))
@@ -1554,7 +1086,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // Plantilla
         new Setting(containerEl)
             .setName(this.plugin.t('taskTemplate'))
             .setDesc(this.plugin.t('taskTemplateDesc'))
@@ -1566,7 +1097,6 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // Insertar por defecto
         new Setting(containerEl)
             .setName(this.plugin.t('insertByDefault'))
             .setDesc(this.plugin.t('insertByDefaultDesc'))
@@ -1577,7 +1107,409 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
     }
-} ${this.settings.apiToken}`
+}// main.ts - Versión Final Corregida con Sincronización Bidireccional
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, MarkdownFileInfo, TFile } from 'obsidian';
+
+interface TodoistPluginSettings {
+    apiToken: string;
+    defaultProject: string;
+    taskTemplate: string;
+    insertTaskInNote: boolean;
+    taskNoteTemplate: string;
+    autoRefresh: boolean;
+    refreshInterval: number;
+    language: 'en' | 'es';
+    enableSync: boolean;
+    syncInterval: number;
+    defaultTime: string;
+    defaultDuration: number;
+}
+
+const DEFAULT_SETTINGS: TodoistPluginSettings = {
+    apiToken: '',
+    defaultProject: '',
+    taskTemplate: '{{content}}',
+    insertTaskInNote: true,
+    taskNoteTemplate: '- [ ] {{content}} [📋]({{url}}) {{priority}} {{labels}} {{due}} {{description}} #tasktodo',
+    autoRefresh: false,
+    refreshInterval: 300,
+    language: 'es',
+    enableSync: true,
+    syncInterval: 60,
+    defaultTime: '08:00',
+    defaultDuration: 60
+}
+
+// Traducciones
+const translations = {
+    en: {
+        'createTask': 'Create Todoist Task',
+        'taskContent': 'Task Content',
+        'taskContentPlaceholder': 'Write your task content...',
+        'description': 'Description (optional)',
+        'descriptionPlaceholder': 'Additional task description...',
+        'project': 'Project',
+        'inbox': 'Inbox',
+        'priority': 'Priority',
+        'deadline': 'Deadline',
+        'dueTime': 'Due Time (optional)',
+        'duration': 'Duration (optional)',
+        'reminder': 'Reminder (optional)',
+        'labels': 'Labels',
+        'insertInNote': 'Insert reference in current note',
+        'cancel': 'Cancel',
+        'createTaskBtn': 'Create Task',
+        'selectDate': 'Select Date',
+        'selectTime': 'Select Time',
+        'selectDuration': 'Select Duration',
+        'noReminder': 'No reminder',
+        'noDuration': 'No duration',
+        'p1Urgent': 'P1 - Urgent',
+        'p2High': 'P2 - High',
+        'p3Medium': 'P3 - Medium',
+        'p4Low': 'P4 - Low',
+        '5minBefore': '5 minutes before',
+        '15minBefore': '15 minutes before',
+        '30minBefore': '30 minutes before',
+        '1hourBefore': '1 hour before',
+        '2hoursBefore': '2 hours before',
+        '1dayBefore': '1 day before',
+        'createTaskCommand': 'Create Todoist task',
+        'createFromSelection': 'Create task from selection',
+        'settingsTitle': 'Todoist Configuration',
+        'apiToken': 'API Token',
+        'apiTokenDesc': 'Your Todoist API token. Click to configure.',
+        'defaultProject': 'Default Project',
+        'defaultProjectDesc': 'Default project ID for new tasks (optional)',
+        'taskTemplate': 'Task template in note',
+        'taskTemplateDesc': 'Format of text inserted in note. Use {{content}}, {{url}}, {{id}}, {{priority}}, {{labels}}, {{due}}, {{description}}',
+        'insertByDefault': 'Insert in note by default',
+        'insertByDefaultDesc': 'Always insert task reference in current note',
+        'autoRefresh': 'Auto refresh',
+        'autoRefreshDesc': 'Automatically refresh projects and labels',
+        'refreshInterval': 'Refresh interval (seconds)',
+        'refreshIntervalDesc': 'How often to refresh data from Todoist',
+        'language': 'Language',
+        'languageDesc': 'Plugin interface language',
+        'configureToken': 'Configure API Token',
+        'taskCreated': 'Task created',
+        'configureApiFirst': 'Configure your Todoist API token first',
+        'selectTextFirst': 'Select text to create a task',
+        'enterTaskContent': 'Enter task content',
+        'errorCreatingTask': 'Error creating task',
+        'tokenModalTitle': 'Configure Todoist API Token',
+        'tokenModalDesc': 'Get your API token from Todoist integrations settings',
+        'tokenPlaceholder': 'Enter your API token...',
+        'getTokenLink': 'Get your token here',
+        'save': 'Save',
+        'tokenSaved': 'API token saved successfully',
+        'creating': 'Creating task...',
+        'enableSync': 'Enable synchronization',
+        'enableSyncDesc': 'Sync task status between Obsidian and Todoist',
+        'syncInterval': 'Sync interval (seconds)',
+        'syncIntervalDesc': 'How often to check for task updates',
+        'defaultTime': 'Default time',
+        'defaultTimeDesc': 'Default time when creating tasks with due date',
+        'defaultDuration': 'Default duration (minutes)',
+        'defaultDurationDesc': 'Default task duration in minutes',
+        'taskCompleted': 'Task completed in Todoist',
+        'taskUncompleted': 'Task reopened in Todoist',
+        'syncError': 'Sync error',
+        'apiStatus': 'API Connection Status',
+        'apiConnected': 'Connected',
+        'apiDisconnected': 'Disconnected',
+        'testConnection': 'Test Connection',
+        'today': 'Today',
+        'tomorrow': 'Tomorrow',
+        'thisWeek': 'This Week',
+        'nextWeek': 'Next Week',
+        'customDate': 'Custom Date',
+        'repeatTask': 'Repeat Task',
+        'noRepeat': 'No repeat',
+        'daily': 'Daily',
+        'weekly': 'Weekly (same day)',
+        'weekdays': 'Weekdays (Mon-Fri)',
+        'monthly': 'Monthly',
+        'yearly': 'Yearly',
+        '15min': '15 minutes',
+        '30min': '30 minutes',
+        '45min': '45 minutes',
+        '1hour': '1 hour',
+        '1hour30min': '1 hour 30 minutes',
+        '2hours': '2 hours',
+        '2hours30min': '2 hours 30 minutes',
+        '3hours': '3 hours',
+        '4hours': '4 hours',
+        '5hours': '5 hours',
+        '6hours': '6 hours',
+        '7hours': '7 hours',
+        '8hours': '8 hours'
+    },
+    es: {
+        'createTask': 'Crear Tarea en Todoist',
+        'taskContent': 'Contenido de la Tarea',
+        'taskContentPlaceholder': 'Escribe el contenido de tu tarea...',
+        'description': 'Descripción (opcional)',
+        'descriptionPlaceholder': 'Descripción adicional de la tarea...',
+        'project': 'Proyecto',
+        'inbox': 'Bandeja de Entrada',
+        'priority': 'Prioridad',
+        'deadline': 'Fecha Límite',
+        'dueTime': 'Hora Límite (opcional)',
+        'duration': 'Duración (opcional)',
+        'reminder': 'Recordatorio (opcional)',
+        'labels': 'Etiquetas',
+        'insertInNote': 'Insertar referencia en la nota actual',
+        'cancel': 'Cancelar',
+        'createTaskBtn': 'Crear Tarea',
+        'selectDate': 'Seleccionar Fecha',
+        'selectTime': 'Seleccionar Hora',
+        'selectDuration': 'Seleccionar Duración',
+        'noReminder': 'Sin recordatorio',
+        'noDuration': 'Sin duración',
+        'p1Urgent': 'P1 - Urgente',
+        'p2High': 'P2 - Alta',
+        'p3Medium': 'P3 - Media',
+        'p4Low': 'P4 - Baja',
+        '5minBefore': '5 minutos antes',
+        '15minBefore': '15 minutos antes',
+        '30minBefore': '30 minutos antes',
+        '1hourBefore': '1 hora antes',
+        '2hoursBefore': '2 horas antes',
+        '1dayBefore': '1 día antes',
+        'createTaskCommand': 'Crear tarea en Todoist',
+        'createFromSelection': 'Crear tarea desde selección',
+        'settingsTitle': 'Configuración de Todoist',
+        'apiToken': 'Token de API',
+        'apiTokenDesc': 'Tu token de API de Todoist. Haz clic para configurar.',
+        'defaultProject': 'Proyecto por Defecto',
+        'defaultProjectDesc': 'ID del proyecto donde se crearán las tareas por defecto (opcional)',
+        'taskTemplate': 'Plantilla de tarea en nota',
+        'taskTemplateDesc': 'Formato del texto que se insertará en la nota. Usa {{content}}, {{url}}, {{id}}, {{priority}}, {{labels}}, {{due}}, {{description}}',
+        'insertByDefault': 'Insertar en nota por defecto',
+        'insertByDefaultDesc': 'Siempre insertar referencia de la tarea en la nota actual',
+        'autoRefresh': 'Actualización automática',
+        'autoRefreshDesc': 'Actualizar automáticamente proyectos y etiquetas',
+        'refreshInterval': 'Intervalo de actualización (segundos)',
+        'refreshIntervalDesc': 'Cada cuánto tiempo actualizar datos de Todoist',
+        'language': 'Idioma',
+        'languageDesc': 'Idioma de la interfaz del plugin',
+        'configureToken': 'Configurar Token de API',
+        'taskCreated': 'Tarea creada',
+        'configureApiFirst': 'Configura tu token de API de Todoist primero',
+        'selectTextFirst': 'Selecciona texto para crear una tarea',
+        'enterTaskContent': 'Ingresa el contenido de la tarea',
+        'errorCreatingTask': 'Error al crear tarea',
+        'tokenModalTitle': 'Configurar Token de API de Todoist',
+        'tokenModalDesc': 'Obtén tu token de API desde las configuraciones de integraciones de Todoist',
+        'tokenPlaceholder': 'Ingresa tu token de API...',
+        'getTokenLink': 'Obtén tu token aquí',
+        'save': 'Guardar',
+        'tokenSaved': 'Token de API guardado exitosamente',
+        'creating': 'Creando tarea...',
+        'enableSync': 'Habilitar sincronización',
+        'enableSyncDesc': 'Sincronizar estado de tareas entre Obsidian y Todoist',
+        'syncInterval': 'Intervalo de sincronización (segundos)',
+        'syncIntervalDesc': 'Cada cuánto tiempo verificar actualizaciones de tareas',
+        'defaultTime': 'Hora por defecto',
+        'defaultTimeDesc': 'Hora predeterminada al crear tareas con fecha límite',
+        'defaultDuration': 'Duración por defecto (minutos)',
+        'defaultDurationDesc': 'Duración predeterminada de tareas en minutos',
+        'taskCompleted': 'Tarea completada en Todoist',
+        'taskUncompleted': 'Tarea reabierta en Todoist',
+        'syncError': 'Error de sincronización',
+        'apiStatus': 'Estado de Conexión API',
+        'apiConnected': 'Conectado',
+        'apiDisconnected': 'Desconectado',
+        'testConnection': 'Probar Conexión',
+        'today': 'Hoy',
+        'tomorrow': 'Mañana',
+        'thisWeek': 'Esta Semana',
+        'nextWeek': 'Próxima Semana',
+        'customDate': 'Fecha Personalizada',
+        'repeatTask': 'Repetir Tarea',
+        'noRepeat': 'No repetir',
+        'daily': 'Diariamente',
+        'weekly': 'Semanalmente (mismo día)',
+        'weekdays': 'Días laborales (Lun-Vie)',
+        'monthly': 'Mensualmente',
+        'yearly': 'Anualmente',
+        '15min': '15 minutos',
+        '30min': '30 minutos',
+        '45min': '45 minutos',
+        '1hour': '1 hora',
+        '1hour30min': '1 hora 30 minutos',
+        '2hours': '2 horas',
+        '2hours30min': '2 horas 30 minutos',
+        '3hours': '3 horas',
+        '4hours': '4 horas',
+        '5hours': '5 horas',
+        '6hours': '6 horas',
+        '7hours': '7 horas',
+        '8hours': '8 horas'
+    }
+};
+
+interface TodoistTask {
+    id: string;
+    content: string;
+    description: string;
+    project_id: string;
+    url: string;
+    priority: number;
+    labels: string[];
+    is_completed: boolean;
+    due?: {
+        date: string;
+        string: string;
+        datetime?: string;
+        recurring?: boolean;
+    };
+    duration?: {
+        amount: number;
+        unit: string;
+    };
+}
+
+interface TodoistProject {
+    id: string;
+    name: string;
+    color: string;
+}
+
+interface TodoistLabel {
+    id: string;
+    name: string;
+    color: string;
+}
+
+interface TaskCreationData {
+    content: string;
+    description?: string;
+    project_id?: string;
+    due_date?: string;
+    due_datetime?: string;
+    due_string?: string;
+    priority: number;
+    labels: string[];
+    reminder?: string;
+    duration?: number;
+    duration_unit?: string;
+}
+
+interface TaskMapping {
+    todoistId: string;
+    file: string;
+    line: number;
+    lineContent: string;
+}
+
+export default class TodoistPlugin extends Plugin {
+    settings: TodoistPluginSettings;
+    refreshInterval: NodeJS.Timeout | null = null;
+    syncInterval: NodeJS.Timeout | null = null;
+    
+    private projectsCache: TodoistProject[] = [];
+    private labelsCache: TodoistLabel[] = [];
+    private lastFetch: number = 0;
+    private cacheDuration: number = 5 * 60 * 1000;
+    private taskMappings: Map<string, TaskMapping> = new Map();
+    public apiStatus: boolean = false;
+    private debounceTimeout: NodeJS.Timeout | null = null;
+
+    async onload() {
+        await this.loadSettings();
+        await this.loadTaskMappings();
+
+        this.addCommand({
+            id: 'create-todoist-task',
+            name: this.t('createTaskCommand'),
+            callback: () => {
+                new CreateTaskModal(this.app, this).open();
+            }
+        });
+
+        this.addCommand({
+            id: 'create-task-from-selection',
+            name: this.t('createFromSelection'),
+            editorCallback: (editor: Editor) => {
+                const selection = editor.getSelection();
+                if (selection) {
+                    this.createTaskFromText(selection);
+                } else {
+                    new Notice(this.t('selectTextFirst'));
+                }
+            }
+        });
+
+        this.addSettingTab(new TodoistSettingTab(this.app, this));
+
+        if (this.settings.autoRefresh) {
+            this.startAutoRefresh();
+        }
+
+        if (this.settings.enableSync) {
+            this.startSync();
+        }
+
+        this.registerEvent(
+            this.app.workspace.on('editor-change', (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
+                if (this.settings.enableSync && view instanceof MarkdownView) {
+                    this.debounceEditorChange(editor, view);
+                }
+            })
+        );
+
+        this.registerEvent(
+            this.app.vault.on('modify', (file: TFile) => {
+                if (this.settings.enableSync && file.extension === 'md') {
+                    this.debounceFileChange(file);
+                }
+            })
+        );
+
+        this.preloadData();
+        this.testApiConnection();
+    }
+
+    onunload() {
+        this.stopAutoRefresh();
+        this.stopSync();
+        this.saveTaskMappings();
+    }
+
+    t(key: string): string {
+        return translations[this.settings.language][key] || key;
+    }
+
+    private debounceEditorChange(editor: Editor, view: MarkdownView) {
+        if (this.debounceTimeout) {
+            clearTimeout(this.debounceTimeout);
+        }
+        this.debounceTimeout = setTimeout(() => {
+            this.handleEditorChange(editor, view);
+        }, 1000);
+    }
+
+    private debounceFileChange(file: TFile) {
+        if (this.debounceTimeout) {
+            clearTimeout(this.debounceTimeout);
+        }
+        this.debounceTimeout = setTimeout(() => {
+            this.handleFileChange(file);
+        }, 1000);
+    }
+
+    async testApiConnection(): Promise<boolean> {
+        if (!this.settings.apiToken) {
+            this.apiStatus = false;
+            return false;
+        }
+
+        try {
+            const response = await fetch('https://api.todoist.com/rest/v2/projects', {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
                 }
             });
             this.apiStatus = response.ok;
@@ -1686,9 +1618,7 @@ class TodoistSettingTab extends PluginSettingTab {
                             lines[mapping.line] = currentLine.replace('- [x]', '- [ ]');
                         }
                         
-                        // Actualizar el mapping con el nuevo contenido
                         mapping.lineContent = lines[mapping.line];
-                        
                         await this.app.vault.modify(file, lines.join('\n'));
                     }
                 }
@@ -1698,22 +1628,18 @@ class TodoistSettingTab extends PluginSettingTab {
         }
     }
 
-    // MEJORADO: Manejar cambios en el editor
     async handleEditorChange(editor: Editor, view: MarkdownView) {
         try {
             const cursor = editor.getCursor();
             const currentLine = editor.getLine(cursor.line);
             
-            // Buscar tareas con #tasktodo en la línea actual
             const taskMatch = this.findTaskInLine(currentLine);
             if (taskMatch) {
                 const { taskId, isCompleted } = taskMatch;
                 console.log(`Detected task ${taskId} change to ${isCompleted ? 'completed' : 'uncompleted'}`);
                 
-                // Actualizar en Todoist
                 const success = await this.updateTodoistTask(taskId, isCompleted);
                 if (success) {
-                    // Actualizar el mapping local
                     const mapping = this.taskMappings.get(taskId);
                     if (mapping) {
                         mapping.lineContent = currentLine;
@@ -1727,18 +1653,15 @@ class TodoistSettingTab extends PluginSettingTab {
         }
     }
 
-    // NUEVO: Manejar cambios en archivos
     async handleFileChange(file: TFile) {
         try {
             const content = await this.app.vault.read(file);
             const lines = content.split('\n');
             
-            // Revisar todas las líneas que tienen mappings en este archivo
             for (const [taskId, mapping] of this.taskMappings) {
                 if (mapping.file === file.path && lines[mapping.line]) {
                     const currentLine = lines[mapping.line];
                     
-                    // Verificar si la línea ha cambiado
                     if (currentLine !== mapping.lineContent && currentLine.includes('#tasktodo')) {
                         const taskMatch = this.findTaskInLine(currentLine);
                         if (taskMatch && taskMatch.taskId === taskId) {
@@ -1758,12 +1681,9 @@ class TodoistSettingTab extends PluginSettingTab {
         }
     }
 
-    // NUEVO: Función para encontrar tareas en una línea
     private findTaskInLine(line: string): { taskId: string; isCompleted: boolean } | null {
-        // Buscar patrón de checkbox con #tasktodo
         const checkboxMatch = line.match(/- \[([ x])\].*#tasktodo/);
         if (checkboxMatch) {
-            // Buscar ID de tarea en el enlace de Todoist
             const taskIdMatch = line.match(/todoist\.com\/(?:app\/)?(?:task\/)?(\d+)/);
             if (taskIdMatch) {
                 return {
@@ -1966,3 +1886,18 @@ class TodoistSettingTab extends PluginSettingTab {
             console.warn('Error creating reminder:', error);
         }
     }
+
+    async insertTaskInCurrentNote(task: TodoistTask) {
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (!activeView) {
+            return;
+        }
+
+        const editor = activeView.editor;
+        const cursor = editor.getCursor();
+        
+        const priorityText = this.getPriorityTextWithColor(task.priority);
+        const labelsText = task.labels && task.labels.length > 0 ? 
+            task.labels.map(label => {
+                const labelColor = this.getLabelColor(label);
+                return `<span class="todoist-label" style="background-color: ${labelColor}20; border-color: ${labelColor}; color: var(--text-normal);"

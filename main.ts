@@ -41,7 +41,7 @@ const translations = {
         'project': 'Project',
         'inbox': 'Inbox',
         'priority': 'Priority',
-        'deadline': 'Deadline',
+        'deadline': 'Due Date',
         'dueTime': 'Due Time (optional)',
         'duration': 'Duration (optional)',
         'reminder': 'Reminder (optional)',
@@ -49,9 +49,9 @@ const translations = {
         'insertInNote': 'Insert reference in current note',
         'cancel': 'Cancel',
         'createTaskBtn': 'Create Task',
-        'selectDate': 'Select Date',
-        'selectTime': 'Select Time',
-        'selectDuration': 'Select Duration',
+        'selectDate': 'Date',
+        'selectTime': 'Time',
+        'selectDuration': 'Duration',
         'noReminder': 'No reminder',
         'p1Urgent': 'P1 - Urgent',
         'p2High': 'P2 - High',
@@ -151,9 +151,9 @@ const translations = {
         'insertInNote': 'Insertar referencia en la nota actual',
         'cancel': 'Cancelar',
         'createTaskBtn': 'Crear Tarea',
-        'selectDate': 'Seleccionar Fecha',
-        'selectTime': 'Seleccionar Hora',
-        'selectDuration': 'Seleccionar Duración',
+        'selectDate': 'Fecha',
+        'selectTime': 'Hora',
+        'selectDuration': 'Duración',
         'noReminder': 'Sin recordatorio',
         'p1Urgent': 'P1 - Urgente',
         'p2High': 'P2 - Alta',
@@ -1349,6 +1349,7 @@ class CreateTaskModal extends Modal {
     projects: TodoistProject[] = [];
     labels: TodoistLabel[] = [];
     dueDateButton: HTMLButtonElement;
+    dueDateLimitButton: HTMLButtonElement;
     dueTimeButton: HTMLButtonElement;
     durationButton: HTMLButtonElement;
     reminderButton: HTMLButtonElement;
@@ -1466,12 +1467,13 @@ class CreateTaskModal extends Modal {
     }
 
     createDueDateFields(contentEl: HTMLElement) {
-        const dueDateContainer = contentEl.createDiv({ cls: 'field-container' });
-        dueDateContainer.createEl('label', { text: this.plugin.t('deadline'), cls: 'field-label' });
+        // Contenedor para los dos campos de fecha
+        const datesContainer = contentEl.createDiv({ cls: 'date-fields-container' });
         
-        const dateTimeContainer = dueDateContainer.createDiv({ cls: 'date-time-duration-container' });
-        
-        this.dueDateButton = dateTimeContainer.createEl('button', { 
+        // Campo de Fecha
+        const dateField = datesContainer.createDiv({ cls: 'date-field' });
+        dateField.createEl('label', { text: this.plugin.t('selectDate'), cls: 'field-label' });
+        this.dueDateButton = dateField.createEl('button', { 
             text: this.dueDate || this.plugin.t('selectDate'),
             cls: 'todoist-button date-button'
         });
@@ -1482,8 +1484,29 @@ class CreateTaskModal extends Modal {
                 this.dueDateButton.setText(selectedDate);
             }).open();
         });
+
+        // Campo de Fecha Límite (Due Date)
+        const dueDateField = datesContainer.createDiv({ cls: 'date-field' });
+        dueDateField.createEl('label', { text: this.plugin.t('deadline'), cls: 'field-label' });
+        this.dueDateLimitButton = dueDateField.createEl('button', { 
+            text: this.dueDate || this.plugin.t('deadline'),
+            cls: 'todoist-button due-date-button'
+        });
+        this.dueDateLimitButton.addEventListener('click', () => {
+            new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
+                this.dueDate = selectedDate;
+                this.repeatOption = repeat || '';
+                this.dueDateLimitButton.setText(selectedDate);
+            }).open();
+        });
+
+        // Contenedor para tiempo y duración
+        const timeDurationContainer = contentEl.createDiv({ cls: 'time-duration-container' });
         
-        this.dueTimeButton = dateTimeContainer.createEl('button', { 
+        // Campo de Tiempo
+        const timeField = timeDurationContainer.createDiv({ cls: 'date-field' });
+        timeField.createEl('label', { text: this.plugin.t('selectTime'), cls: 'field-label' });
+        this.dueTimeButton = timeField.createEl('button', { 
             text: this.dueTime || this.plugin.t('selectTime'),
             cls: 'todoist-button time-button'
         });
@@ -1494,7 +1517,10 @@ class CreateTaskModal extends Modal {
             }).open();
         });
         
-        this.durationButton = dateTimeContainer.createEl('button', { 
+        // Campo de Duración
+        const durationField = timeDurationContainer.createDiv({ cls: 'date-field' });
+        durationField.createEl('label', { text: this.plugin.t('selectDuration'), cls: 'field-label' });
+        this.durationButton = durationField.createEl('button', { 
             text: this.taskDuration > 0 ? this.formatDuration(this.taskDuration) : this.plugin.t('selectDuration'),
             cls: 'todoist-button duration-button'
         });

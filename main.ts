@@ -1379,11 +1379,9 @@ class CreateTaskModal extends Modal {
 
         this.createTaskContentField(contentEl);
         this.createDescriptionField(contentEl);
-        this.createProjectSelector(contentEl);
-        this.createPrioritySelector(contentEl);
+        this.createInlineSelectors(contentEl);
         this.createDueDateFields(contentEl);
         this.createReminderField(contentEl);
-        this.createLabelsSelector(contentEl);
         this.createInsertNoteCheckbox(contentEl);
         this.createButtons(contentEl);
     }
@@ -1416,12 +1414,15 @@ class CreateTaskModal extends Modal {
         });
     }
 
-    createProjectSelector(contentEl: HTMLElement) {
+    createInlineSelectors(contentEl: HTMLElement) {
+        const inlineContainer = contentEl.createDiv({ cls: 'inline-selectors-container' });
+        
+        // Proyecto y Prioridad en la primera fila
         if (this.projects.length > 0) {
-            const projectContainer = contentEl.createDiv({ cls: 'field-container' });
-            projectContainer.createEl('label', { text: this.plugin.t('project'), cls: 'field-label' });
+            const projectField = inlineContainer.createDiv({ cls: 'inline-selector-field' });
+            projectField.createEl('label', { text: this.plugin.t('project'), cls: 'field-label' });
             
-            const projectSelect = projectContainer.createEl('select', { cls: 'project-select' });
+            const projectSelect = projectField.createEl('select', { cls: 'inline-project-select' });
             
             const defaultOption = projectSelect.createEl('option', { text: this.plugin.t('inbox') });
             defaultOption.value = '';
@@ -1438,13 +1439,11 @@ class CreateTaskModal extends Modal {
                 this.selectedProject = (e.target as HTMLSelectElement).value;
             });
         }
-    }
 
-    createPrioritySelector(contentEl: HTMLElement) {
-        const priorityContainer = contentEl.createDiv({ cls: 'field-container' });
-        priorityContainer.createEl('label', { text: this.plugin.t('priority'), cls: 'field-label' });
+        const priorityField = inlineContainer.createDiv({ cls: 'inline-selector-field' });
+        priorityField.createEl('label', { text: this.plugin.t('priority'), cls: 'field-label' });
         
-        const prioritySelect = priorityContainer.createEl('select', { cls: 'priority-select' });
+        const prioritySelect = priorityField.createEl('select', { cls: 'inline-priority-select' });
         
         const priorities = [
             { value: 4, key: 'p1Urgent' },
@@ -1464,6 +1463,40 @@ class CreateTaskModal extends Modal {
         prioritySelect.addEventListener('change', (e) => {
             this.selectedPriority = parseInt((e.target as HTMLSelectElement).value);
         });
+
+        // Etiquetas ocupando toda la línea siguiente
+        if (this.labels.length > 0) {
+            const labelsContainer = contentEl.createDiv({ cls: 'field-container' });
+            labelsContainer.createEl('label', { text: this.plugin.t('labels'), cls: 'field-label' });
+            
+            this.labelsButton = labelsContainer.createEl('button', {
+                text: this.selectedLabels.length > 0 ? `${this.selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` : this.plugin.t('labels'),
+                cls: 'inline-labels-button'
+            });
+            
+            this.labelsButton.addEventListener('click', () => {
+                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
+                    this.selectedLabels = selectedLabels;
+                    this.labelsButton.setText(
+                        selectedLabels.length > 0 
+                            ? `${selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` 
+                            : this.plugin.t('labels')
+                    );
+                }).open();
+            });
+        }
+    }
+
+    createProjectSelector(contentEl: HTMLElement) {
+        // Este método ahora está integrado en createInlineSelectors
+    }
+
+    createPrioritySelector(contentEl: HTMLElement) {
+        // Este método ahora está integrado en createInlineSelectors
+    }
+
+    createLabelsSelector(contentEl: HTMLElement) {
+        // Este método ahora está integrado en createInlineSelectors
     }
 
     createDueDateFields(contentEl: HTMLElement) {
@@ -1585,16 +1618,25 @@ class CreateTaskModal extends Modal {
     }
 
     createInsertNoteCheckbox(contentEl: HTMLElement) {
-        const insertContainer = contentEl.createDiv({ cls: 'field-container checkbox-container' });
+        const insertContainer = contentEl.createDiv({ cls: 'field-container' });
         
-        const insertCheckbox = insertContainer.createEl('input', { type: 'checkbox' });
+        const checkboxContainer = insertContainer.createDiv({ cls: 'checkbox-container' });
+        
+        const insertCheckbox = checkboxContainer.createEl('input', { 
+            type: 'checkbox',
+            attr: { id: 'insert-task-checkbox' }
+        });
         insertCheckbox.checked = this.plugin.settings.insertTaskInNote;
         insertCheckbox.addEventListener('change', (e) => {
             this.plugin.settings.insertTaskInNote = (e.target as HTMLInputElement).checked;
             this.plugin.saveSettings();
         });
         
-        const insertLabel = insertContainer.createEl('label', { text: this.plugin.t('insertInNote'), cls: 'checkbox-label' });
+        const insertLabel = checkboxContainer.createEl('label', { 
+            text: this.plugin.t('insertInNote'), 
+            cls: 'checkbox-label',
+            attr: { for: 'insert-task-checkbox' }
+        });
     }
 
     createButtons(contentEl: HTMLElement) {

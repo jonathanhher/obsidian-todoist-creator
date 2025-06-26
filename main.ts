@@ -1951,4 +1951,18 @@ class TodoistSettingTab extends PluginSettingTab {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                },
+                body: JSON.stringify({
+                    item_id: taskId,
+                    due: { string: reminderTime }
+                })
+            });
+
+            if (!response.ok) {
+                console.warn('Error creating reminder:', response.status);
+            }
+        } catch (error) {
+            console.warn('Error creating reminder:', error);
+        }
+    }

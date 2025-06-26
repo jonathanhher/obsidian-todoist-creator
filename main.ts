@@ -1,4 +1,4 @@
-// main.ts - Versión Final Mejorada
+// main.ts - Versión Mejorada con Validaciones y Optimizaciones
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, MarkdownFileInfo, TFile } from 'obsidian';
 
 interface TodoistPluginSettings {
@@ -13,6 +13,7 @@ interface TodoistPluginSettings {
     enableSync: boolean;
     syncInterval: number;
     defaultTime: string;
+    defaultDuration: number; // duración en minutos
 }
 
 const DEFAULT_SETTINGS: TodoistPluginSettings = {
@@ -25,8 +26,9 @@ const DEFAULT_SETTINGS: TodoistPluginSettings = {
     refreshInterval: 300,
     language: 'es',
     enableSync: true,
-    syncInterval: 60, // 1 minuto
-    defaultTime: '08:00'
+    syncInterval: 60,
+    defaultTime: '08:00',
+    defaultDuration: 60 // 1 hora por defecto
 }
 
 // Traducciones actualizadas
@@ -41,7 +43,9 @@ const translations = {
         'inbox': 'Inbox',
         'priority': 'Priority',
         'dueDate': 'Due Date (optional)',
+        'dateOnly': 'Date (optional)',
         'dueTime': 'Due Time (optional)',
+        'duration': 'Duration (optional)',
         'reminder': 'Reminder (optional)',
         'labels': 'Labels',
         'insertInNote': 'Insert reference in current note',
@@ -49,7 +53,9 @@ const translations = {
         'createTaskBtn': 'Create Task',
         'selectDate': 'Select Date',
         'selectTime': 'Select Time',
+        'selectDuration': 'Select Duration',
         'noReminder': 'No reminder',
+        'noDuration': 'No duration',
         'p1Urgent': 'P1 - Urgent',
         'p2High': 'P2 - High',
         'p3Medium': 'P3 - Medium',
@@ -96,9 +102,40 @@ const translations = {
         'syncIntervalDesc': 'How often to check for task updates',
         'defaultTime': 'Default time',
         'defaultTimeDesc': 'Default time when creating tasks with due date',
+        'defaultDuration': 'Default duration (minutes)',
+        'defaultDurationDesc': 'Default task duration in minutes',
         'taskCompleted': 'Task completed in Todoist',
         'taskUncompleted': 'Task reopened in Todoist',
-        'syncError': 'Sync error'
+        'syncError': 'Sync error',
+        'apiStatus': 'API Connection Status',
+        'apiConnected': 'Connected',
+        'apiDisconnected': 'Disconnected',
+        'testConnection': 'Test Connection',
+        'today': 'Today',
+        'tomorrow': 'Tomorrow',
+        'thisWeek': 'This Week',
+        'nextWeek': 'Next Week',
+        'customDate': 'Custom Date',
+        'repeatTask': 'Repeat Task',
+        'noRepeat': 'No repeat',
+        'daily': 'Daily',
+        'weekly': 'Weekly (same day)',
+        'weekdays': 'Weekdays (Mon-Fri)',
+        'monthly': 'Monthly',
+        'yearly': 'Yearly',
+        '15min': '15 minutes',
+        '30min': '30 minutes',
+        '45min': '45 minutes',
+        '1hour': '1 hour',
+        '1hour30min': '1 hour 30 minutes',
+        '2hours': '2 hours',
+        '2hours30min': '2 hours 30 minutes',
+        '3hours': '3 hours',
+        '4hours': '4 hours',
+        '5hours': '5 hours',
+        '6hours': '6 hours',
+        '7hours': '7 hours',
+        '8hours': '8 hours'
     },
     es: {
         'createTask': 'Crear Tarea en Todoist',
@@ -110,7 +147,9 @@ const translations = {
         'inbox': 'Bandeja de Entrada',
         'priority': 'Prioridad',
         'dueDate': 'Fecha Límite (opcional)',
+        'dateOnly': 'Fecha (opcional)',
         'dueTime': 'Hora Límite (opcional)',
+        'duration': 'Duración (opcional)',
         'reminder': 'Recordatorio (opcional)',
         'labels': 'Etiquetas',
         'insertInNote': 'Insertar referencia en la nota actual',
@@ -118,7 +157,9 @@ const translations = {
         'createTaskBtn': 'Crear Tarea',
         'selectDate': 'Seleccionar Fecha',
         'selectTime': 'Seleccionar Hora',
+        'selectDuration': 'Seleccionar Duración',
         'noReminder': 'Sin recordatorio',
+        'noDuration': 'Sin duración',
         'p1Urgent': 'P1 - Urgente',
         'p2High': 'P2 - Alta',
         'p3Medium': 'P3 - Media',
@@ -165,9 +206,40 @@ const translations = {
         'syncIntervalDesc': 'Cada cuánto tiempo verificar actualizaciones de tareas',
         'defaultTime': 'Hora por defecto',
         'defaultTimeDesc': 'Hora predeterminada al crear tareas con fecha límite',
+        'defaultDuration': 'Duración por defecto (minutos)',
+        'defaultDurationDesc': 'Duración predeterminada de tareas en minutos',
         'taskCompleted': 'Tarea completada en Todoist',
         'taskUncompleted': 'Tarea reabierta en Todoist',
-        'syncError': 'Error de sincronización'
+        'syncError': 'Error de sincronización',
+        'apiStatus': 'Estado de Conexión API',
+        'apiConnected': 'Conectado',
+        'apiDisconnected': 'Desconectado',
+        'testConnection': 'Probar Conexión',
+        'today': 'Hoy',
+        'tomorrow': 'Mañana',
+        'thisWeek': 'Esta Semana',
+        'nextWeek': 'Próxima Semana',
+        'customDate': 'Fecha Personalizada',
+        'repeatTask': 'Repetir Tarea',
+        'noRepeat': 'No repetir',
+        'daily': 'Diariamente',
+        'weekly': 'Semanalmente (mismo día)',
+        'weekdays': 'Días laborales (Lun-Vie)',
+        'monthly': 'Mensualmente',
+        'yearly': 'Anualmente',
+        '15min': '15 minutos',
+        '30min': '30 minutos',
+        '45min': '45 minutos',
+        '1hour': '1 hora',
+        '1hour30min': '1 hora 30 minutos',
+        '2hours': '2 horas',
+        '2hours30min': '2 horas 30 minutos',
+        '3hours': '3 horas',
+        '4hours': '4 horas',
+        '5hours': '5 horas',
+        '6hours': '6 horas',
+        '7hours': '7 horas',
+        '8hours': '8 horas'
     }
 };
 
@@ -185,6 +257,10 @@ interface TodoistTask {
         string: string;
         datetime?: string;
         recurring?: boolean;
+    };
+    duration?: {
+        amount: number;
+        unit: string;
     };
 }
 
@@ -206,9 +282,12 @@ interface TaskCreationData {
     project_id?: string;
     due_date?: string;
     due_datetime?: string;
+    due_string?: string;
     priority: number;
     labels: string[];
     reminder?: string;
+    duration?: number;
+    duration_unit?: string;
 }
 
 interface TaskMapping {
@@ -222,7 +301,7 @@ export default class TodoistPlugin extends Plugin {
     refreshInterval: NodeJS.Timeout | null = null;
     syncInterval: NodeJS.Timeout | null = null;
     
-    // Cache para mejorar velocidad
+    // Cache optimizado
     private projectsCache: TodoistProject[] = [];
     private labelsCache: TodoistLabel[] = [];
     private lastFetch: number = 0;
@@ -230,6 +309,7 @@ export default class TodoistPlugin extends Plugin {
     
     // Mapeo de tareas para sincronización
     private taskMappings: Map<string, TaskMapping> = new Map();
+    private apiStatus: boolean = false;
 
     async onload() {
         await this.loadSettings();
@@ -269,21 +349,14 @@ export default class TodoistPlugin extends Plugin {
         // Escuchar cambios en archivos para detectar checkboxes
         this.registerEvent(
             this.app.workspace.on('editor-change', (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
-                // Primero, verificas si la sincronización está habilitada
-                if (this.settings.enableSync) {
-                    
-                    // AHORA, LA COMPROBACIÓN CLAVE:
-                    // Solo continuamos si 'view' es una instancia de MarkdownView (un editor completo)
-                    if (view instanceof MarkdownView) {
-                        // Estando dentro de este 'if', TypeScript ya sabe que es seguro
-                        // llamar a la función. El error desaparecerá.
-                        this.handleEditorChange(editor, view);
-                    }
+                if (this.settings.enableSync && view instanceof MarkdownView) {
+                    this.debounceEditorChange(editor, view);
                 }
             })
         );
 
         this.preloadData();
+        this.testApiConnection();
     }
 
     onunload() {
@@ -294,6 +367,37 @@ export default class TodoistPlugin extends Plugin {
 
     t(key: string): string {
         return translations[this.settings.language][key] || key;
+    }
+
+    // Debounce para optimizar cambios del editor
+    private debounceTimeout: NodeJS.Timeout | null = null;
+    private debounceEditorChange(editor: Editor, view: MarkdownView) {
+        if (this.debounceTimeout) {
+            clearTimeout(this.debounceTimeout);
+        }
+        this.debounceTimeout = setTimeout(() => {
+            this.handleEditorChange(editor, view);
+        }, 500); // Esperar 500ms antes de procesar
+    }
+
+    async testApiConnection(): Promise<boolean> {
+        if (!this.settings.apiToken) {
+            this.apiStatus = false;
+            return false;
+        }
+
+        try {
+            const response = await fetch('https://api.todoist.com/rest/v2/projects', {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                }
+            });
+            this.apiStatus = response.ok;
+            return this.apiStatus;
+        } catch (error) {
+            this.apiStatus = false;
+            return false;
+        }
     }
 
     async preloadData() {
@@ -325,7 +429,6 @@ export default class TodoistPlugin extends Plugin {
         }
     }
 
-    // Sistema de sincronización
     startSync() {
         this.stopSync();
         if (this.settings.enableSync && this.settings.syncInterval > 0) {
@@ -411,7 +514,7 @@ export default class TodoistPlugin extends Plugin {
         // Detectar si se cambió un checkbox
         const checkboxMatch = line.match(/- \[([ x])\].*#tasktodo/);
         if (checkboxMatch) {
-            const taskIdMatch = line.match(/\/task\/(\d+)/);
+            const taskIdMatch = line.match(/task\/(\d+)/);
             if (taskIdMatch) {
                 const taskId = taskIdMatch[1];
                 const isCompleted = checkboxMatch[1] === 'x';
@@ -491,6 +594,8 @@ export default class TodoistPlugin extends Plugin {
         } else {
             this.stopSync();
         }
+
+        await this.testApiConnection();
     }
 
     async createTaskFromText(content: string) {
@@ -541,7 +646,9 @@ export default class TodoistPlugin extends Plugin {
             requestData.description = taskData.description;
         }
 
-        if (taskData.due_datetime) {
+        if (taskData.due_string) {
+            requestData.due_string = taskData.due_string;
+        } else if (taskData.due_datetime) {
             requestData.due_datetime = taskData.due_datetime;
         } else if (taskData.due_date) {
             requestData.due_date = taskData.due_date;
@@ -549,6 +656,11 @@ export default class TodoistPlugin extends Plugin {
 
         if (taskData.labels && taskData.labels.length > 0) {
             requestData.labels = taskData.labels;
+        }
+
+        if (taskData.duration && taskData.duration_unit) {
+            requestData.duration = taskData.duration;
+            requestData.duration_unit = taskData.duration_unit;
         }
 
         const response = await fetch(url, {
@@ -605,9 +717,8 @@ export default class TodoistPlugin extends Plugin {
         const editor = activeView.editor;
         const cursor = editor.getCursor();
         
-        // Crear texto con colores usando spans con clases CSS
         const priorityText = this.getPriorityTextWithColor(task.priority);
-        const labelsText = task.labels ? task.labels.map(label => `<span class="todoist-label">${label}</span>`).join(', ') : '';
+        const labelsText = task.labels ? task.labels.map(label => `<span class="todoist-label" style="background-color: ${this.getLabelColor(label)}20; border-color: ${this.getLabelColor(label)};">${label}</span>`).join(', ') : '';
         const dueText = task.due ? `<span class="todoist-due">${task.due.string}</span>` : '';
         const descText = task.description ? `<span class="todoist-description">${task.description}</span>` : '';
         
@@ -624,7 +735,6 @@ export default class TodoistPlugin extends Plugin {
         
         editor.replaceRange(finalText + '\n', cursor);
         
-        // Guardar mapping para sincronización
         if (this.settings.enableSync) {
             const file = activeView.file;
             if (file) {
@@ -639,6 +749,11 @@ export default class TodoistPlugin extends Plugin {
         
         const newLine = cursor.line + 1;
         editor.setCursor({ line: newLine, ch: 0 });
+    }
+
+    getLabelColor(labelName: string): string {
+        const label = this.labelsCache.find(l => l.name === labelName);
+        return label?.color || '#808080';
     }
 
     getPriorityText(priority: number): string {
@@ -717,10 +832,11 @@ export default class TodoistPlugin extends Plugin {
     }
 }
 
-// Modal para configurar API Token
+// Modal para configurar API Token con indicador de estado
 class ApiTokenModal extends Modal {
     plugin: TodoistPlugin;
     tokenInput: HTMLInputElement;
+    statusIndicator: HTMLElement;
 
     constructor(app: App, plugin: TodoistPlugin) {
         super(app);
@@ -730,6 +846,14 @@ class ApiTokenModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.createEl('h2', { text: this.plugin.t('tokenModalTitle') });
+
+        // Indicador de estado
+        const statusContainer = contentEl.createDiv({ cls: 'api-status-container' });
+        statusContainer.createEl('span', { text: this.plugin.t('apiStatus') + ': ' });
+        this.statusIndicator = statusContainer.createEl('span', { 
+            cls: this.plugin.apiStatus ? 'api-status-connected' : 'api-status-disconnected',
+            text: this.plugin.apiStatus ? this.plugin.t('apiConnected') : this.plugin.t('apiDisconnected')
+        });
 
         const descEl = contentEl.createEl('p', { text: this.plugin.t('tokenModalDesc') });
         descEl.style.marginBottom = '20px';
@@ -761,6 +885,10 @@ class ApiTokenModal extends Modal {
         const buttonContainer = contentEl.createDiv();
         buttonContainer.style.textAlign = 'right';
 
+        const testButton = buttonContainer.createEl('button', { text: this.plugin.t('testConnection') });
+        testButton.style.marginRight = '10px';
+        testButton.addEventListener('click', () => this.testConnection());
+
         const cancelButton = buttonContainer.createEl('button', { text: this.plugin.t('cancel') });
         cancelButton.style.marginRight = '10px';
         cancelButton.addEventListener('click', () => this.close());
@@ -776,6 +904,23 @@ class ApiTokenModal extends Modal {
                 this.saveToken();
             }
         });
+    }
+
+    async testConnection() {
+        const token = this.tokenInput.value.trim();
+        if (!token) return;
+
+        const originalToken = this.plugin.settings.apiToken;
+        this.plugin.settings.apiToken = token;
+        
+        const isConnected = await this.plugin.testApiConnection();
+        
+        this.statusIndicator.className = isConnected ? 'api-status-connected' : 'api-status-disconnected';
+        this.statusIndicator.textContent = isConnected ? this.plugin.t('apiConnected') : this.plugin.t('apiDisconnected');
+        
+        if (!isConnected) {
+            this.plugin.settings.apiToken = originalToken;
+        }
     }
 
     async saveToken() {
@@ -795,18 +940,60 @@ class ApiTokenModal extends Modal {
     }
 }
 
-// Modal para seleccionar fecha
+// Modal mejorado para seleccionar fecha
 class DatePickerModal extends Modal {
+    plugin: TodoistPlugin;
     onDateSelect: (date: string) => void;
 
-    constructor(app: App, onDateSelect: (date: string) => void) {
+    constructor(app: App, plugin: TodoistPlugin, onDateSelect: (date: string) => void) {
         super(app);
+        this.plugin = plugin;
         this.onDateSelect = onDateSelect;
     }
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: 'Seleccionar Fecha' });
+        contentEl.createEl('h3', { text: this.plugin.t('selectDate') });
+
+        // Opciones rápidas
+        const quickOptions = contentEl.createDiv({ cls: 'date-quick-options' });
+        
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        
+        const thisWeekEnd = new Date(today);
+        thisWeekEnd.setDate(today.getDate() + (7 - today.getDay()));
+        
+        const nextWeekEnd = new Date(thisWeekEnd);
+        nextWeekEnd.setDate(thisWeekEnd.getDate() + 7);
+
+        const quickDates = [
+            { label: this.plugin.t('today'), value: this.formatDate(today) },
+            { label: this.plugin.t('tomorrow'), value: this.formatDate(tomorrow) },
+            { label: this.plugin.t('thisWeek'), value: this.formatDate(thisWeekEnd) },
+            { label: this.plugin.t('nextWeek'), value: this.formatDate(nextWeekEnd) }
+        ];
+
+        quickDates.forEach(dateOption => {
+            const button = quickOptions.createEl('button', { 
+                text: dateOption.label,
+                cls: 'date-quick-button'
+            });
+            button.addEventListener('click', () => {
+                this.onDateSelect(dateOption.value);
+                this.close();
+            });
+        });
+
+        // Separador
+        contentEl.createEl('hr', { cls: 'date-separator' });
+        
+        // Texto para calendario personalizado
+        contentEl.createEl('p', { 
+            text: this.plugin.t('customDate'),
+            cls: 'date-custom-label'
+        });
 
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -815,21 +1002,30 @@ class DatePickerModal extends Modal {
         this.renderCalendar(contentEl, currentMonth, currentYear);
     }
 
+    formatDate(date: Date): string {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
     renderCalendar(container: HTMLElement, month: number, year: number) {
-        container.empty();
-        container.createEl('h3', { text: 'Seleccionar Fecha' });
+        // Limpiar calendario anterior si existe
+        const existingCalendar = container.querySelector('.calendar-container');
+        if (existingCalendar) {
+            existingCalendar.remove();
+        }
 
-        const headerEl = container.createDiv();
-        headerEl.style.display = 'flex';
-        headerEl.style.justifyContent = 'space-between';
-        headerEl.style.alignItems = 'center';
-        headerEl.style.marginBottom = '15px';
+        const calendarContainer = container.createDiv({ cls: 'calendar-container' });
 
-        const prevButton = headerEl.createEl('button', { text: '‹' });
+        const headerEl = calendarContainer.createDiv({ cls: 'calendar-header' });
+
+        const prevButton = headerEl.createEl('button', { text: '‹', cls: 'calendar-nav-button' });
         const monthYearEl = headerEl.createEl('span', { 
-            text: new Date(year, month).toLocaleDateString('es', { month: 'long', year: 'numeric' })
+            text: new Date(year, month).toLocaleDateString(this.plugin.settings.language === 'es' ? 'es' : 'en', { 
+                month: 'long', 
+                year: 'numeric' 
+            }),
+            cls: 'calendar-month-year'
         });
-        const nextButton = headerEl.createEl('button', { text: '›' });
+        const nextButton = headerEl.createEl('button', { text: '›', cls: 'calendar-nav-button' });
 
         prevButton.addEventListener('click', () => {
             const newDate = new Date(year, month - 1);
@@ -841,66 +1037,53 @@ class DatePickerModal extends Modal {
             this.renderCalendar(container, newDate.getMonth(), newDate.getFullYear());
         });
 
-        const calendarEl = container.createDiv();
-        calendarEl.style.display = 'grid';
-        calendarEl.style.gridTemplateColumns = 'repeat(7, 1fr)';
-        calendarEl.style.gap = '5px';
-        calendarEl.style.marginBottom = '15px';
+        const calendarEl = calendarContainer.createDiv({ cls: 'calendar-grid' });
 
-        const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+        const daysOfWeek = this.plugin.settings.language === 'es' 
+            ? ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+            : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
         daysOfWeek.forEach(day => {
-            const dayEl = calendarEl.createEl('div', { text: day });
-            dayEl.style.textAlign = 'center';
-            dayEl.style.fontWeight = 'bold';
-            dayEl.style.padding = '8px';
-            dayEl.style.color = 'var(--text-muted)';
+            const dayEl = calendarEl.createEl('div', { text: day, cls: 'calendar-day-header' });
         });
 
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const today = new Date();
 
+        // Días vacíos al inicio
         for (let i = 0; i < firstDay; i++) {
-            calendarEl.createDiv();
+            calendarEl.createDiv({ cls: 'calendar-day-empty' });
         }
 
+        // Días del mes
         for (let day = 1; day <= daysInMonth; day++) {
-            const dayEl = calendarEl.createEl('div', { text: day.toString() });
-            dayEl.style.textAlign = 'center';
-            dayEl.style.padding = '8px';
-            dayEl.style.cursor = 'pointer';
-            dayEl.style.borderRadius = '4px';
-            dayEl.style.border = '1px solid transparent';
+            const dayEl = calendarEl.createEl('div', { text: day.toString(), cls: 'calendar-day' });
 
             const currentDate = new Date(year, month, day);
             const isToday = currentDate.toDateString() === today.toDateString();
+            const isPast = currentDate < today;
             
             if (isToday) {
-                dayEl.style.background = 'var(--interactive-accent)';
-                dayEl.style.color = 'var(--text-on-accent)';
+                dayEl.addClass('calendar-day-today');
+            }
+            
+            if (isPast) {
+                dayEl.addClass('calendar-day-past');
             }
 
             dayEl.addEventListener('click', () => {
-                const selectedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const selectedDate = this.formatDate(currentDate);
                 this.onDateSelect(selectedDate);
                 this.close();
             });
-
-            dayEl.addEventListener('mouseenter', () => {
-                if (!isToday) {
-                    dayEl.style.background = 'var(--background-modifier-hover)';
-                }
-            });
-
-            dayEl.addEventListener('mouseleave', () => {
-                if (!isToday) {
-                    dayEl.style.background = 'transparent';
-                }
-            });
         }
 
-        const cancelButton = container.createEl('button', { text: 'Cancelar' });
-        cancelButton.style.width = '100%';
+        // Botón cancelar
+        const cancelButton = calendarContainer.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'calendar-cancel-button'
+        });
         cancelButton.addEventListener('click', () => this.close());
     }
 
@@ -910,56 +1093,107 @@ class DatePickerModal extends Modal {
     }
 }
 
-// Modal para seleccionar hora
+// Modal mejorado para seleccionar hora
 class TimePickerModal extends Modal {
+    plugin: TodoistPlugin;
     onTimeSelect: (time: string) => void;
 
-    constructor(app: App, onTimeSelect: (time: string) => void) {
+    constructor(app: App, plugin: TodoistPlugin, onTimeSelect: (time: string) => void) {
         super(app);
+        this.plugin = plugin;
         this.onTimeSelect = onTimeSelect;
     }
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: 'Seleccionar Hora' });
+        contentEl.createEl('h3', { text: this.plugin.t('selectTime') });
 
-        const timeContainer = contentEl.createDiv();
-        timeContainer.style.maxHeight = '300px';
-        timeContainer.style.overflowY = 'auto';
-        timeContainer.style.marginBottom = '15px';
+        const timeContainer = contentEl.createDiv({ cls: 'time-container' });
 
+        // Generar horarios cada 15 minutos
         for (let hour = 0; hour < 24; hour++) {
-            for (let minute = 0; minute < 60; minute += 30) {
+            for (let minute = 0; minute < 60; minute += 15) {
                 const timeString = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-                const displayTime = new Date(0, 0, 0, hour, minute).toLocaleTimeString('es', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    hour12: false 
-                });
+                const displayTime = new Date(0, 0, 0, hour, minute).toLocaleTimeString(
+                    this.plugin.settings.language === 'es' ? 'es' : 'en', 
+                    { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: false 
+                    }
+                );
 
-                const timeEl = timeContainer.createEl('div', { text: displayTime });
-                timeEl.style.padding = '10px';
-                timeEl.style.cursor = 'pointer';
-                timeEl.style.borderRadius = '4px';
-                timeEl.style.marginBottom = '2px';
+                const timeEl = timeContainer.createEl('div', { text: displayTime, cls: 'time-option' });
 
                 timeEl.addEventListener('click', () => {
                     this.onTimeSelect(timeString);
                     this.close();
                 });
-
-                timeEl.addEventListener('mouseenter', () => {
-                    timeEl.style.background = 'var(--background-modifier-hover)';
-                });
-
-                timeEl.addEventListener('mouseleave', () => {
-                    timeEl.style.background = 'transparent';
-                });
             }
         }
 
-        const cancelButton = contentEl.createEl('button', { text: 'Cancelar' });
-        cancelButton.style.width = '100%';
+        const cancelButton = contentEl.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'time-cancel-button'
+        });
+        cancelButton.addEventListener('click', () => this.close());
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+// Modal para seleccionar duración
+class DurationPickerModal extends Modal {
+    plugin: TodoistPlugin;
+    onDurationSelect: (duration: number) => void;
+
+    constructor(app: App, plugin: TodoistPlugin, onDurationSelect: (duration: number) => void) {
+        super(app);
+        this.plugin = plugin;
+        this.onDurationSelect = onDurationSelect;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: this.plugin.t('selectDuration') });
+
+        const durationContainer = contentEl.createDiv({ cls: 'duration-container' });
+
+        const durations = [
+            { minutes: 15, key: '15min' },
+            { minutes: 30, key: '30min' },
+            { minutes: 45, key: '45min' },
+            { minutes: 60, key: '1hour' },
+            { minutes: 90, key: '1hour30min' },
+            { minutes: 120, key: '2hours' },
+            { minutes: 150, key: '2hours30min' },
+            { minutes: 180, key: '3hours' },
+            { minutes: 240, key: '4hours' },
+            { minutes: 300, key: '5hours' },
+            { minutes: 360, key: '6hours' },
+            { minutes: 420, key: '7hours' },
+            { minutes: 480, key: '8hours' }
+        ];
+
+        durations.forEach(duration => {
+            const durationEl = durationContainer.createEl('div', { 
+                text: this.plugin.t(duration.key),
+                cls: 'duration-option'
+            });
+
+            durationEl.addEventListener('click', () => {
+                this.onDurationSelect(duration.minutes);
+                this.close();
+            });
+        });
+
+        const cancelButton = contentEl.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'duration-cancel-button'
+        });
         cancelButton.addEventListener('click', () => this.close());
     }
 
@@ -978,18 +1212,22 @@ class CreateTaskModal extends Modal {
     selectedLabels: string[] = [];
     dueDate: string = '';
     dueTime: string = '';
+    taskDuration: number = 0;
     reminderTime: string = '';
+    repeatOption: string = '';
     projects: TodoistProject[] = [];
     labels: TodoistLabel[] = [];
     dueDateButton: HTMLButtonElement;
     dueTimeButton: HTMLButtonElement;
+    durationButton: HTMLButtonElement;
     createButton: HTMLButtonElement;
 
     constructor(app: App, plugin: TodoistPlugin) {
         super(app);
         this.plugin = plugin;
         this.selectedProject = plugin.settings.defaultProject;
-        this.dueTime = plugin.settings.defaultTime; // Hora por defecto 08:00
+        this.dueTime = plugin.settings.defaultTime;
+        this.taskDuration = plugin.settings.defaultDuration;
     }
 
     async onOpen() {
@@ -1005,25 +1243,24 @@ class CreateTaskModal extends Modal {
         this.labels = labels;
 
         this.createTaskContentField(contentEl);
-        this.createDescriptionField(contentEl); // Ahora opcional
+        this.createDescriptionField(contentEl);
         this.createProjectSelector(contentEl);
         this.createPrioritySelector(contentEl);
         this.createDueDateFields(contentEl);
         this.createReminderField(contentEl);
+        this.createRepeatField(contentEl);
         this.createLabelsSelector(contentEl);
         this.createInsertNoteCheckbox(contentEl);
         this.createButtons(contentEl);
     }
 
     createTaskContentField(contentEl: HTMLElement) {
-        const taskContentContainer = contentEl.createDiv();
+        const taskContentContainer = contentEl.createDiv({ cls: 'field-container' });
         taskContentContainer.createEl('label', { text: this.plugin.t('taskContent') + ' *' });
         const taskInput = taskContentContainer.createEl('input', {
             type: 'text',
             placeholder: this.plugin.t('taskContentPlaceholder')
         });
-        taskInput.style.width = '100%';
-        taskInput.style.marginTop = '5px';
         taskInput.addEventListener('input', (e) => {
             this.taskContent = (e.target as HTMLInputElement).value;
         });
@@ -1032,17 +1269,13 @@ class CreateTaskModal extends Modal {
     }
 
     createDescriptionField(contentEl: HTMLElement) {
-        const descContainer = contentEl.createDiv();
-        descContainer.style.marginTop = '15px';
-        // Quitar el * para hacerlo opcional
+        const descContainer = contentEl.createDiv({ cls: 'field-container' });
         descContainer.createEl('label', { text: this.plugin.t('description') });
         
         const descTextarea = descContainer.createEl('textarea', {
-            placeholder: this.plugin.t('descriptionPlaceholder')
+            placeholder: this.plugin.t('descriptionPlaceholder'),
+            cls: 'description-textarea'
         });
-        descTextarea.style.width = '100%';
-        descTextarea.style.marginTop = '5px';
-        descTextarea.style.minHeight = '80px';
         descTextarea.addEventListener('input', (e) => {
             this.taskDescription = (e.target as HTMLTextAreaElement).value;
         });
@@ -1050,13 +1283,10 @@ class CreateTaskModal extends Modal {
 
     createProjectSelector(contentEl: HTMLElement) {
         if (this.projects.length > 0) {
-            const projectContainer = contentEl.createDiv();
-            projectContainer.style.marginTop = '15px';
+            const projectContainer = contentEl.createDiv({ cls: 'field-container' });
             projectContainer.createEl('label', { text: this.plugin.t('project') + ':' });
             
             const projectSelect = projectContainer.createEl('select');
-            projectSelect.style.width = '100%';
-            projectSelect.style.marginTop = '5px';
             
             const defaultOption = projectSelect.createEl('option', { text: this.plugin.t('inbox') });
             defaultOption.value = '';
@@ -1076,13 +1306,10 @@ class CreateTaskModal extends Modal {
     }
 
     createPrioritySelector(contentEl: HTMLElement) {
-        const priorityContainer = contentEl.createDiv();
-        priorityContainer.style.marginTop = '15px';
+        const priorityContainer = contentEl.createDiv({ cls: 'field-container' });
         priorityContainer.createEl('label', { text: this.plugin.t('priority') + ':' });
         
-        const prioritySelect = priorityContainer.createEl('select');
-        prioritySelect.style.width = '100%';
-        prioritySelect.style.marginTop = '5px';
+        const prioritySelect = priorityContainer.createEl('select', { cls: 'priority-select' });
         
         const priorities = [
             { value: 4, key: 'p1Urgent', color: '#d1453b' },
@@ -1094,75 +1321,73 @@ class CreateTaskModal extends Modal {
         priorities.forEach(priority => {
             const option = prioritySelect.createEl('option', { text: this.plugin.t(priority.key) });
             option.value = priority.value.toString();
-            option.style.color = priority.color;
-            option.style.fontWeight = 'bold';
             if (priority.value === this.selectedPriority) {
                 option.selected = true;
             }
         });
         
-        // Colorear el select también
-        prioritySelect.style.color = priorities.find(p => p.value === this.selectedPriority)?.color || '#666666';
-        prioritySelect.style.fontWeight = 'bold';
-        
         prioritySelect.addEventListener('change', (e) => {
             this.selectedPriority = parseInt((e.target as HTMLSelectElement).value);
-            const selectedPriority = priorities.find(p => p.value === this.selectedPriority);
-            if (selectedPriority) {
-                prioritySelect.style.color = selectedPriority.color;
-            }
         });
     }
 
     createDueDateFields(contentEl: HTMLElement) {
-        const dueDateContainer = contentEl.createDiv();
-        dueDateContainer.style.marginTop = '15px';
-        dueDateContainer.createEl('label', { text: this.plugin.t('dueDate') + ':' });
+        const dueDateContainer = contentEl.createDiv({ cls: 'field-container' });
+        dueDateContainer.createEl('label', { text: this.plugin.t('dateOnly') + ':' });
         
-        const dateTimeContainer = dueDateContainer.createDiv();
-        dateTimeContainer.style.display = 'flex';
-        dateTimeContainer.style.gap = '10px';
-        dateTimeContainer.style.marginTop = '5px';
+        const dateTimeContainer = dueDateContainer.createDiv({ cls: 'date-time-duration-container' });
         
         this.dueDateButton = dateTimeContainer.createEl('button', { 
-            text: this.dueDate || this.plugin.t('selectDate') 
+            text: this.dueDate || this.plugin.t('selectDate'),
+            cls: 'date-time-button'
         });
-        this.dueDateButton.style.flex = '1';
-        this.dueDateButton.style.padding = '8px';
         this.dueDateButton.addEventListener('click', () => {
-            new DatePickerModal(this.app, (selectedDate) => {
+            new DatePickerModal(this.app, this.plugin, (selectedDate) => {
                 this.dueDate = selectedDate;
                 this.dueDateButton.setText(selectedDate);
             }).open();
         });
         
         this.dueTimeButton = dateTimeContainer.createEl('button', { 
-            text: this.dueTime || this.plugin.t('selectTime') 
+            text: this.dueTime || this.plugin.t('selectTime'),
+            cls: 'date-time-button'
         });
-        this.dueTimeButton.style.flex = '1';
-        this.dueTimeButton.style.padding = '8px';
         this.dueTimeButton.addEventListener('click', () => {
-            new TimePickerModal(this.app, (selectedTime) => {
+            new TimePickerModal(this.app, this.plugin, (selectedTime) => {
                 this.dueTime = selectedTime;
                 this.dueTimeButton.setText(selectedTime);
             }).open();
         });
         
-        // Establecer la hora por defecto en el texto del botón
-        if (!this.dueTime && this.plugin.settings.defaultTime) {
-            this.dueTime = this.plugin.settings.defaultTime;
-            this.dueTimeButton.setText(this.plugin.settings.defaultTime);
+        this.durationButton = dateTimeContainer.createEl('button', { 
+            text: this.taskDuration > 0 ? this.formatDuration(this.taskDuration) : this.plugin.t('selectDuration'),
+            cls: 'date-time-button'
+        });
+        this.durationButton.addEventListener('click', () => {
+            new DurationPickerModal(this.app, this.plugin, (selectedDuration) => {
+                this.taskDuration = selectedDuration;
+                this.durationButton.setText(this.formatDuration(selectedDuration));
+            }).open();
+        });
+    }
+
+    formatDuration(minutes: number): string {
+        if (minutes < 60) {
+            return `${minutes}min`;
+        } else if (minutes % 60 === 0) {
+            return `${minutes / 60}h`;
+        } else {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return `${hours}h ${mins}min`;
         }
     }
 
     createReminderField(contentEl: HTMLElement) {
-        const reminderContainer = contentEl.createDiv();
-        reminderContainer.style.marginTop = '15px';
+        const reminderContainer = contentEl.createDiv({ cls: 'field-container' });
         reminderContainer.createEl('label', { text: this.plugin.t('reminder') + ':' });
         
         const reminderSelect = reminderContainer.createEl('select');
-        reminderSelect.style.width = '100%';
-        reminderSelect.style.marginTop = '5px';
         
         const reminderOptions = [
             { value: '', key: 'noReminder' },
@@ -1184,55 +1409,66 @@ class CreateTaskModal extends Modal {
         });
     }
 
+    createRepeatField(contentEl: HTMLElement) {
+        const repeatContainer = contentEl.createDiv({ cls: 'field-container' });
+        repeatContainer.createEl('label', { text: this.plugin.t('repeatTask') + ':' });
+        
+        const repeatSelect = repeatContainer.createEl('select');
+        
+        const repeatOptions = [
+            { value: '', key: 'noRepeat' },
+            { value: 'every day', key: 'daily' },
+            { value: 'every week', key: 'weekly' },
+            { value: 'every weekday', key: 'weekdays' },
+            { value: 'every month', key: 'monthly' },
+            { value: 'every year', key: 'yearly' }
+        ];
+        
+        repeatOptions.forEach(option => {
+            const optionElement = repeatSelect.createEl('option', { text: this.plugin.t(option.key) });
+            optionElement.value = option.value;
+        });
+        
+        repeatSelect.addEventListener('change', (e) => {
+            this.repeatOption = (e.target as HTMLSelectElement).value;
+        });
+    }
+
     createLabelsSelector(contentEl: HTMLElement) {
         if (this.labels.length > 0) {
-            const labelsContainer = contentEl.createDiv();
-            labelsContainer.style.marginTop = '15px';
+            const labelsContainer = contentEl.createDiv({ cls: 'field-container' });
             labelsContainer.createEl('label', { text: this.plugin.t('labels') + ':' });
             
-            const labelsGrid = labelsContainer.createDiv();
-            labelsGrid.style.marginTop = '5px';
-            labelsGrid.style.display = 'grid';
-            labelsGrid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(150px, 1fr))';
-            labelsGrid.style.gap = '5px';
-            labelsGrid.style.maxHeight = '120px';
-            labelsGrid.style.overflowY = 'auto';
-            labelsGrid.style.border = '1px solid var(--background-modifier-border)';
-            labelsGrid.style.padding = '10px';
-            labelsGrid.style.borderRadius = '4px';
+            const labelsGrid = labelsContainer.createDiv({ cls: 'labels-grid' });
             
             this.labels.forEach(label => {
-                const labelContainer = labelsGrid.createDiv();
-                labelContainer.style.display = 'flex';
-                labelContainer.style.alignItems = 'center';
-                labelContainer.style.gap = '5px';
-                labelContainer.style.padding = '4px';
-                labelContainer.style.borderRadius = '3px';
-                labelContainer.style.border = `1px solid ${label.color || '#ddd'}`;
-                labelContainer.style.backgroundColor = `${label.color || '#f0f0f0'}20`;
+                const labelContainer = labelsGrid.createDiv({ cls: 'label-item' });
                 
                 const checkbox = labelContainer.createEl('input', { type: 'checkbox' });
                 checkbox.addEventListener('change', (e) => {
                     if ((e.target as HTMLInputElement).checked) {
                         this.selectedLabels.push(label.name);
-                        labelContainer.style.backgroundColor = `${label.color || '#f0f0f0'}40`;
+                        labelContainer.style.backgroundColor = `${label.color}20`;
+                        labelContainer.style.borderColor = label.color;
                     } else {
                         this.selectedLabels = this.selectedLabels.filter(l => l !== label.name);
-                        labelContainer.style.backgroundColor = `${label.color || '#f0f0f0'}20`;
+                        labelContainer.style.backgroundColor = 'transparent';
+                        labelContainer.style.borderColor = 'var(--background-modifier-border)';
                     }
                 });
                 
                 const labelText = labelContainer.createEl('span', { text: label.name });
-                labelText.style.fontSize = '0.9em';
-                labelText.style.color = label.color || 'var(--text-normal)';
-                labelText.style.fontWeight = '500';
+                labelText.style.color = 'var(--text-normal)'; // Mantener color del texto
+                
+                // Establecer colores iniciales
+                labelContainer.style.borderColor = label.color || 'var(--background-modifier-border)';
+                labelContainer.style.border = '1px solid';
             });
         }
     }
 
     createInsertNoteCheckbox(contentEl: HTMLElement) {
-        const insertContainer = contentEl.createDiv();
-        insertContainer.style.marginTop = '15px';
+        const insertContainer = contentEl.createDiv({ cls: 'field-container' });
         
         const insertCheckbox = insertContainer.createEl('input', { type: 'checkbox' });
         insertCheckbox.checked = this.plugin.settings.insertTaskInNote;
@@ -1246,12 +1482,9 @@ class CreateTaskModal extends Modal {
     }
 
     createButtons(contentEl: HTMLElement) {
-        const buttonContainer = contentEl.createDiv();
-        buttonContainer.style.marginTop = '20px';
-        buttonContainer.style.textAlign = 'right';
+        const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
 
         const cancelButton = buttonContainer.createEl('button', { text: this.plugin.t('cancel') });
-        cancelButton.style.marginRight = '10px';
         cancelButton.addEventListener('click', () => {
             this.close();
         });
@@ -1282,12 +1515,25 @@ class CreateTaskModal extends Modal {
                 reminder: this.reminderTime
             };
 
+            // Manejar fecha y hora
             if (this.dueDate) {
+                let dueString = this.dueDate;
+                
                 if (this.dueTime) {
-                    taskData.due_datetime = `${this.dueDate}T${this.dueTime}:00`;
-                } else {
-                    taskData.due_date = this.dueDate;
+                    dueString += ` at ${this.dueTime}`;
                 }
+                
+                if (this.repeatOption) {
+                    dueString += ` ${this.repeatOption}`;
+                }
+                
+                taskData.due_string = dueString;
+            }
+
+            // Agregar duración si está establecida
+            if (this.taskDuration > 0) {
+                taskData.duration = this.taskDuration;
+                taskData.duration_unit = 'minute';
             }
 
             const task = await this.plugin.createTodoistTask(taskData);
@@ -1327,15 +1573,23 @@ class TodoistSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h2', { text: this.plugin.t('settingsTitle') });
 
-        // Token API
-        new Setting(containerEl)
+        // Token API con indicador de estado
+        const apiSetting = new Setting(containerEl)
             .setName(this.plugin.t('apiToken'))
-            .setDesc(this.plugin.t('apiTokenDesc'))
-            .addButton(button => button
-                .setButtonText(this.plugin.t('configureToken'))
-                .onClick(() => {
-                    new ApiTokenModal(this.app, this.plugin).open();
-                }));
+            .setDesc(this.plugin.t('apiTokenDesc'));
+
+        // Crear contenedor para el botón y el indicador
+        const apiContainer = apiSetting.controlEl.createDiv({ cls: 'api-setting-container' });
+        
+        const configButton = apiContainer.createEl('button', { text: this.plugin.t('configureToken') });
+        configButton.addEventListener('click', () => {
+            new ApiTokenModal(this.app, this.plugin).open();
+        });
+
+        const statusIndicator = apiContainer.createEl('span', { 
+            cls: this.plugin.apiStatus ? 'api-status-connected' : 'api-status-disconnected',
+            text: this.plugin.apiStatus ? ' ✓ ' + this.plugin.t('apiConnected') : ' ✗ ' + this.plugin.t('apiDisconnected')
+        });
 
         // Idioma
         new Setting(containerEl)
@@ -1387,6 +1641,19 @@ class TodoistSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.defaultTime)
                 .onChange(async (value) => {
                     this.plugin.settings.defaultTime = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        // Duración por defecto
+        new Setting(containerEl)
+            .setName(this.plugin.t('defaultDuration'))
+            .setDesc(this.plugin.t('defaultDurationDesc'))
+            .addSlider(slider => slider
+                .setLimits(15, 480, 15)
+                .setValue(this.plugin.settings.defaultDuration)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.defaultDuration = value;
                     await this.plugin.saveSettings();
                 }));
 
@@ -1452,3 +1719,4 @@ class TodoistSettingTab extends PluginSettingTab {
                 }));
     }
 }
+            

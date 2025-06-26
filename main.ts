@@ -1,4 +1,4 @@
-// main.ts - Versión Mejorada con Validaciones y Optimizaciones
+// main.ts - Versión Final Corregida con Sincronización Bidireccional
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, MarkdownFileInfo, TFile } from 'obsidian';
 
 interface TodoistPluginSettings {
@@ -13,7 +13,7 @@ interface TodoistPluginSettings {
     enableSync: boolean;
     syncInterval: number;
     defaultTime: string;
-    defaultDuration: number; // duración en minutos
+    defaultDuration: number;
 }
 
 const DEFAULT_SETTINGS: TodoistPluginSettings = {
@@ -28,10 +28,10 @@ const DEFAULT_SETTINGS: TodoistPluginSettings = {
     enableSync: true,
     syncInterval: 60,
     defaultTime: '08:00',
-    defaultDuration: 60 // 1 hora por defecto
+    defaultDuration: 60
 }
 
-// Traducciones actualizadas
+// Traducciones
 const translations = {
     en: {
         'createTask': 'Create Todoist Task',
@@ -42,8 +42,7 @@ const translations = {
         'project': 'Project',
         'inbox': 'Inbox',
         'priority': 'Priority',
-        'dueDate': 'Due Date (optional)',
-        'dateOnly': 'Date (optional)',
+        'deadline': 'Deadline',
         'dueTime': 'Due Time (optional)',
         'duration': 'Duration (optional)',
         'reminder': 'Reminder (optional)',
@@ -146,8 +145,7 @@ const translations = {
         'project': 'Proyecto',
         'inbox': 'Bandeja de Entrada',
         'priority': 'Prioridad',
-        'dueDate': 'Fecha Límite (opcional)',
-        'dateOnly': 'Fecha (opcional)',
+        'deadline': 'Fecha Límite',
         'dueTime': 'Hora Límite (opcional)',
         'duration': 'Duración (opcional)',
         'reminder': 'Recordatorio (opcional)',
@@ -294,6 +292,7 @@ interface TaskMapping {
     todoistId: string;
     file: string;
     line: number;
+    lineContent: string; // Agregar contenido de línea para mejor detección
 }
 
 export default class TodoistPlugin extends Plugin {
@@ -305,11 +304,14 @@ export default class TodoistPlugin extends Plugin {
     private projectsCache: TodoistProject[] = [];
     private labelsCache: TodoistLabel[] = [];
     private lastFetch: number = 0;
-    private cacheDuration: number = 5 * 60 * 1000; // 5 minutos
+    private cacheDuration: number = 5 * 60 * 1000;
     
-    // Mapeo de tareas para sincronización
+    // Mapeo de tareas para sincronización mejorado
     private taskMappings: Map<string, TaskMapping> = new Map();
     public apiStatus: boolean = false;
+
+    // Debounce para cambios del editor
+    private debounceTimeout: NodeJS.Timeout | null = null;
 
     async onload() {
         await this.loadSettings();
@@ -346,11 +348,20 @@ export default class TodoistPlugin extends Plugin {
             this.startSync();
         }
 
-        // Escuchar cambios en archivos para detectar checkboxes
+        // Escuchar cambios en archivos para detectar checkboxes - MEJORADO
         this.registerEvent(
             this.app.workspace.on('editor-change', (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
                 if (this.settings.enableSync && view instanceof MarkdownView) {
                     this.debounceEditorChange(editor, view);
+                }
+            })
+        );
+
+        // También escuchar cambios en archivos (para cambios desde vista previa)
+        this.registerEvent(
+            this.app.vault.on('modify', (file: TFile) => {
+                if (this.settings.enableSync && file.extension === 'md') {
+                    this.debounceFileChange(file);
                 }
             })
         );
@@ -369,15 +380,24 @@ export default class TodoistPlugin extends Plugin {
         return translations[this.settings.language][key] || key;
     }
 
-    // Debounce para optimizar cambios del editor
-    private debounceTimeout: NodeJS.Timeout | null = null;
+    // Debounce mejorado para cambios del editor
     private debounceEditorChange(editor: Editor, view: MarkdownView) {
         if (this.debounceTimeout) {
             clearTimeout(this.debounceTimeout);
         }
         this.debounceTimeout = setTimeout(() => {
             this.handleEditorChange(editor, view);
-        }, 500); // Esperar 500ms antes de procesar
+        }, 1000); // Aumentar a 1 segundo para mejor estabilidad
+    }
+
+    // Nuevo: Debounce para cambios de archivo
+    private debounceFileChange(file: TFile) {
+        if (this.debounceTimeout) {
+            clearTimeout(this.debounceTimeout);
+        }
+        this.debounceTimeout = setTimeout(() => {
+            this.handleFileChange(file);
+        }, 1000);
     }
 
     async testApiConnection(): Promise<boolean> {
@@ -389,309 +409,6 @@ export default class TodoistPlugin extends Plugin {
         try {
             const response = await fetch('https://api.todoist.com/rest/v2/projects', {
                 headers: {
-                    'Authorization': `Bearer ${this.settings.apiToken}`
-                }
-            });
-            this.apiStatus = response.ok;
-            return this.apiStatus;
-        } catch (error) {
-            this.apiStatus = false;
-            return false;
-        }
-    }
-
-    async preloadData() {
-        if (this.settings.apiToken) {
-            try {
-                await Promise.all([
-                    this.getProjects(),
-                    this.getLabels()
-                ]);
-            } catch (error) {
-                console.log('Preload failed, will load on demand');
-            }
-        }
-    }
-
-    startAutoRefresh() {
-        this.stopAutoRefresh();
-        if (this.settings.autoRefresh && this.settings.refreshInterval > 0) {
-            this.refreshInterval = setInterval(async () => {
-                await this.refreshCache();
-            }, this.settings.refreshInterval * 1000);
-        }
-    }
-
-    stopAutoRefresh() {
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-            this.refreshInterval = null;
-        }
-    }
-
-    startSync() {
-        this.stopSync();
-        if (this.settings.enableSync && this.settings.syncInterval > 0) {
-            this.syncInterval = setInterval(async () => {
-                await this.syncTasks();
-            }, this.settings.syncInterval * 1000);
-        }
-    }
-
-    stopSync() {
-        if (this.syncInterval) {
-            clearInterval(this.syncInterval);
-            this.syncInterval = null;
-        }
-    }
-
-    async syncTasks() {
-        if (!this.settings.apiToken || this.taskMappings.size === 0) {
-            return;
-        }
-
-        try {
-            for (const [taskId, mapping] of this.taskMappings) {
-                const task = await this.getTodoistTask(taskId);
-                if (task) {
-                    await this.updateTaskInObsidian(task, mapping);
-                }
-            }
-        } catch (error) {
-            console.error('Sync error:', error);
-        }
-    }
-
-    async getTodoistTask(taskId: string): Promise<TodoistTask | null> {
-        try {
-            const response = await fetch(`https://api.todoist.com/rest/v2/tasks/${taskId}`, {
-                headers: {
-                    'Authorization': `Bearer ${this.settings.apiToken}`
-                }
-            });
-
-            if (response.ok) {
-                return await response.json();
-            }
-        } catch (error) {
-            console.error('Error fetching task:', error);
-        }
-        return null;
-    }
-
-    async updateTaskInObsidian(task: TodoistTask, mapping: TaskMapping) {
-        try {
-            const file = this.app.vault.getAbstractFileByPath(mapping.file);
-            if (file instanceof TFile) {
-                const content = await this.app.vault.read(file);
-                const lines = content.split('\n');
-                
-                if (lines[mapping.line]) {
-                    const currentLine = lines[mapping.line];
-                    const isCurrentlyChecked = currentLine.includes('- [x]');
-                    const shouldBeChecked = task.is_completed;
-                    
-                    if (isCurrentlyChecked !== shouldBeChecked) {
-                        if (shouldBeChecked) {
-                            lines[mapping.line] = currentLine.replace('- [ ]', '- [x]');
-                        } else {
-                            lines[mapping.line] = currentLine.replace('- [x]', '- [ ]');
-                        }
-                        
-                        await this.app.vault.modify(file, lines.join('\n'));
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error updating task in Obsidian:', error);
-        }
-    }
-
-    async handleEditorChange(editor: Editor, view: MarkdownView) {
-        const cursor = editor.getCursor();
-        const line = editor.getLine(cursor.line);
-        
-        // Detectar si se cambió un checkbox
-        const checkboxMatch = line.match(/- \[([ x])\].*#tasktodo/);
-        if (checkboxMatch) {
-            const taskIdMatch = line.match(/task\/(\d+)/);
-            if (taskIdMatch) {
-                const taskId = taskIdMatch[1];
-                const isCompleted = checkboxMatch[1] === 'x';
-                
-                await this.updateTodoistTask(taskId, isCompleted);
-            }
-        }
-    }
-
-    async updateTodoistTask(taskId: string, isCompleted: boolean) {
-        try {
-            const url = isCompleted 
-                ? `https://api.todoist.com/rest/v2/tasks/${taskId}/close`
-                : `https://api.todoist.com/rest/v2/tasks/${taskId}/reopen`;
-                
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.settings.apiToken}`
-                }
-            });
-
-            if (response.ok) {
-                const message = isCompleted ? this.t('taskCompleted') : this.t('taskUncompleted');
-                new Notice(message);
-            }
-        } catch (error) {
-            console.error('Error updating Todoist task:', error);
-            new Notice(this.t('syncError'));
-        }
-    }
-
-    async loadTaskMappings() {
-        try {
-            const data = await this.loadData();
-            if (data?.taskMappings) {
-                this.taskMappings = new Map(Object.entries(data.taskMappings));
-            }
-        } catch (error) {
-            console.error('Error loading task mappings:', error);
-        }
-    }
-
-    async saveTaskMappings() {
-        try {
-            const data = await this.loadData() || {};
-            data.taskMappings = Object.fromEntries(this.taskMappings);
-            await this.saveData(data);
-        } catch (error) {
-            console.error('Error saving task mappings:', error);
-        }
-    }
-
-    async refreshCache() {
-        this.lastFetch = 0;
-        await Promise.all([
-            this.getProjects(),
-            this.getLabels()
-        ]);
-    }
-
-    async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-        
-        if (this.settings.autoRefresh) {
-            this.startAutoRefresh();
-        } else {
-            this.stopAutoRefresh();
-        }
-
-        if (this.settings.enableSync) {
-            this.startSync();
-        } else {
-            this.stopSync();
-        }
-
-        await this.testApiConnection();
-    }
-
-    async createTaskFromText(content: string) {
-        if (!this.settings.apiToken) {
-            new Notice(this.t('configureApiFirst'));
-            return;
-        }
-
-        const loadingNotice = new Notice(this.t('creating'), 0);
-        
-        try {
-            const taskData: TaskCreationData = {
-                content: content,
-                project_id: this.settings.defaultProject,
-                priority: 1,
-                labels: []
-            };
-
-            const task = await this.createTodoistTask(taskData);
-            
-            loadingNotice.hide();
-            
-            if (this.settings.insertTaskInNote) {
-                await this.insertTaskInCurrentNote(task);
-            }
-            
-            new Notice(`${this.t('taskCreated')}: ${task.content}`);
-        } catch (error) {
-            loadingNotice.hide();
-            new Notice(`${this.t('errorCreatingTask')}: ${error.message}`);
-            console.error('Error creating Todoist task:', error);
-        }
-    }
-
-    async createTodoistTask(taskData: TaskCreationData): Promise<TodoistTask> {
-        const url = 'https://api.todoist.com/rest/v2/tasks';
-        
-        const requestData: any = {
-            content: taskData.content,
-            priority: taskData.priority
-        };
-
-        if (taskData.project_id && taskData.project_id !== '') {
-            requestData.project_id = taskData.project_id;
-        }
-
-        if (taskData.description && taskData.description.trim() !== '') {
-            requestData.description = taskData.description;
-        }
-
-        if (taskData.due_string) {
-            requestData.due_string = taskData.due_string;
-        } else if (taskData.due_datetime) {
-            requestData.due_datetime = taskData.due_datetime;
-        } else if (taskData.due_date) {
-            requestData.due_date = taskData.due_date;
-        }
-
-        if (taskData.labels && taskData.labels.length > 0) {
-            requestData.labels = taskData.labels;
-        }
-
-        if (taskData.duration && taskData.duration_unit) {
-            requestData.duration = taskData.duration;
-            requestData.duration_unit = taskData.duration_unit;
-        }
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.settings.apiToken}`
-            },
-            body: JSON.stringify(requestData)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-        }
-
-        const task = await response.json();
-
-        if (taskData.reminder && task.id) {
-            this.createReminder(task.id, taskData.reminder).catch(console.warn);
-        }
-
-        return task;
-    }
-
-    async createReminder(taskId: string, reminderTime: string): Promise<void> {
-        try {
-            const response = await fetch('https://api.todoist.com/rest/v2/reminders', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.settings.apiToken}`
                 },
                 body: JSON.stringify({
@@ -718,7 +435,11 @@ export default class TodoistPlugin extends Plugin {
         const cursor = editor.getCursor();
         
         const priorityText = this.getPriorityTextWithColor(task.priority);
-        const labelsText = task.labels ? task.labels.map(label => `<span class="todoist-label" style="background-color: ${this.getLabelColor(label)}20; border-color: ${this.getLabelColor(label)};">${label}</span>`).join(', ') : '';
+        const labelsText = task.labels && task.labels.length > 0 ? 
+            task.labels.map(label => {
+                const labelColor = this.getLabelColor(label);
+                return `<span class="todoist-label" style="background-color: ${labelColor}20; border-color: ${labelColor}; color: var(--text-normal);">${label}</span>`;
+            }).join(' ') : '';
         const dueText = task.due ? `<span class="todoist-due">${task.due.string}</span>` : '';
         const descText = task.description ? `<span class="todoist-description">${task.description}</span>` : '';
         
@@ -735,15 +456,18 @@ export default class TodoistPlugin extends Plugin {
         
         editor.replaceRange(finalText + '\n', cursor);
         
+        // MEJORADO: Guardar mapping para sincronización con contenido de línea
         if (this.settings.enableSync) {
             const file = activeView.file;
             if (file) {
                 this.taskMappings.set(task.id, {
                     todoistId: task.id,
                     file: file.path,
-                    line: cursor.line
+                    line: cursor.line,
+                    lineContent: finalText
                 });
                 this.saveTaskMappings();
+                console.log(`Saved mapping for task ${task.id} at line ${cursor.line}`);
             }
         }
         
@@ -940,12 +664,13 @@ class ApiTokenModal extends Modal {
     }
 }
 
-// Modal mejorado para seleccionar fecha
+// Modal mejorado para seleccionar fecha con repetición integrada
 class DatePickerModal extends Modal {
     plugin: TodoistPlugin;
-    onDateSelect: (date: string) => void;
+    onDateSelect: (date: string, repeat?: string) => void;
+    selectedRepeat: string = '';
 
-    constructor(app: App, plugin: TodoistPlugin, onDateSelect: (date: string) => void) {
+    constructor(app: App, plugin: TodoistPlugin, onDateSelect: (date: string, repeat?: string) => void) {
         super(app);
         this.plugin = plugin;
         this.onDateSelect = onDateSelect;
@@ -953,7 +678,7 @@ class DatePickerModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: this.plugin.t('selectDate') });
+        contentEl.createEl('h3', { text: this.plugin.t('deadline'), cls: 'modal-title' });
 
         // Opciones rápidas
         const quickOptions = contentEl.createDiv({ cls: 'date-quick-options' });
@@ -981,13 +706,37 @@ class DatePickerModal extends Modal {
                 cls: 'date-quick-button'
             });
             button.addEventListener('click', () => {
-                this.onDateSelect(dateOption.value);
+                this.onDateSelect(dateOption.value, this.selectedRepeat);
                 this.close();
             });
         });
 
         // Separador
         contentEl.createEl('hr', { cls: 'date-separator' });
+        
+        // Repetición
+        const repeatContainer = contentEl.createDiv({ cls: 'repeat-container' });
+        repeatContainer.createEl('label', { text: this.plugin.t('repeatTask') + ':' });
+        
+        const repeatSelect = repeatContainer.createEl('select', { cls: 'repeat-select' });
+        
+        const repeatOptions = [
+            { value: '', key: 'noRepeat' },
+            { value: 'every day', key: 'daily' },
+            { value: 'every week', key: 'weekly' },
+            { value: 'every weekday', key: 'weekdays' },
+            { value: 'every month', key: 'monthly' },
+            { value: 'every year', key: 'yearly' }
+        ];
+        
+        repeatOptions.forEach(option => {
+            const optionElement = repeatSelect.createEl('option', { text: this.plugin.t(option.key) });
+            optionElement.value = option.value;
+        });
+        
+        repeatSelect.addEventListener('change', (e) => {
+            this.selectedRepeat = (e.target as HTMLSelectElement).value;
+        });
         
         // Texto para calendario personalizado
         contentEl.createEl('p', { 
@@ -1074,7 +823,7 @@ class DatePickerModal extends Modal {
 
             dayEl.addEventListener('click', () => {
                 const selectedDate = this.formatDate(currentDate);
-                this.onDateSelect(selectedDate);
+                this.onDateSelect(selectedDate, this.selectedRepeat);
                 this.close();
             });
         }
@@ -1093,7 +842,7 @@ class DatePickerModal extends Modal {
     }
 }
 
-// Modal mejorado para seleccionar hora
+// Modal mejorado para seleccionar hora con hora actual
 class TimePickerModal extends Modal {
     plugin: TodoistPlugin;
     onTimeSelect: (time: string) => void;
@@ -1106,9 +855,13 @@ class TimePickerModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: this.plugin.t('selectTime') });
+        contentEl.createEl('h3', { text: this.plugin.t('selectTime'), cls: 'modal-title' });
 
         const timeContainer = contentEl.createDiv({ cls: 'time-container' });
+
+        const currentTime = new Date();
+        const currentHour = currentTime.getHours();
+        const currentMinute = Math.floor(currentTime.getMinutes() / 15) * 15;
 
         // Generar horarios cada 15 minutos
         for (let hour = 0; hour < 24; hour++) {
@@ -1125,6 +878,15 @@ class TimePickerModal extends Modal {
 
                 const timeEl = timeContainer.createEl('div', { text: displayTime, cls: 'time-option' });
 
+                // Destacar la hora actual
+                if (hour === currentHour && minute === currentMinute) {
+                    timeEl.addClass('time-option-current');
+                    // Hacer scroll a la hora actual
+                    setTimeout(() => {
+                        timeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
+
                 timeEl.addEventListener('click', () => {
                     this.onTimeSelect(timeString);
                     this.close();
@@ -1135,6 +897,58 @@ class TimePickerModal extends Modal {
         const cancelButton = contentEl.createEl('button', { 
             text: this.plugin.t('cancel'),
             cls: 'time-cancel-button'
+        });
+        cancelButton.addEventListener('click', () => this.close());
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+// Modal para seleccionar recordatorio
+class ReminderPickerModal extends Modal {
+    plugin: TodoistPlugin;
+    onReminderSelect: (reminder: string) => void;
+
+    constructor(app: App, plugin: TodoistPlugin, onReminderSelect: (reminder: string) => void) {
+        super(app);
+        this.plugin = plugin;
+        this.onReminderSelect = onReminderSelect;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: this.plugin.t('reminder'), cls: 'modal-title' });
+
+        const reminderContainer = contentEl.createDiv({ cls: 'reminder-container' });
+
+        const reminderOptions = [
+            { value: '', key: 'noReminder' },
+            { value: '5 minutes before', key: '5minBefore' },
+            { value: '15 minutes before', key: '15minBefore' },
+            { value: '30 minutes before', key: '30minBefore' },
+            { value: '1 hour before', key: '1hourBefore' },
+            { value: '2 hours before', key: '2hoursBefore' },
+            { value: '1 day before', key: '1dayBefore' }
+        ];
+
+        reminderOptions.forEach(option => {
+            const reminderEl = reminderContainer.createEl('div', { 
+                text: this.plugin.t(option.key),
+                cls: 'reminder-option'
+            });
+
+            reminderEl.addEventListener('click', () => {
+                this.onReminderSelect(option.value);
+                this.close();
+            });
+        });
+
+        const cancelButton = contentEl.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'reminder-cancel-button'
         });
         cancelButton.addEventListener('click', () => this.close());
     }
@@ -1158,7 +972,7 @@ class DurationPickerModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h3', { text: this.plugin.t('selectDuration') });
+        contentEl.createEl('h3', { text: this.plugin.t('selectDuration'), cls: 'modal-title' });
 
         const durationContainer = contentEl.createDiv({ cls: 'duration-container' });
 
@@ -1203,6 +1017,7 @@ class DurationPickerModal extends Modal {
     }
 }
 
+// Modal principal de creación de tareas
 class CreateTaskModal extends Modal {
     plugin: TodoistPlugin;
     taskContent: string = '';
@@ -1220,6 +1035,8 @@ class CreateTaskModal extends Modal {
     dueDateButton: HTMLButtonElement;
     dueTimeButton: HTMLButtonElement;
     durationButton: HTMLButtonElement;
+    reminderButton: HTMLButtonElement;
+    labelsButton: HTMLButtonElement;
     createButton: HTMLButtonElement;
 
     constructor(app: App, plugin: TodoistPlugin) {
@@ -1232,7 +1049,8 @@ class CreateTaskModal extends Modal {
 
     async onOpen() {
         const { contentEl } = this;
-        contentEl.createEl('h2', { text: this.plugin.t('createTask') });
+        contentEl.addClass('todoist-modal');
+        contentEl.createEl('h2', { text: this.plugin.t('createTask'), cls: 'modal-title' });
 
         const [projects, labels] = await Promise.all([
             this.plugin.getProjects(),
@@ -1248,7 +1066,6 @@ class CreateTaskModal extends Modal {
         this.createPrioritySelector(contentEl);
         this.createDueDateFields(contentEl);
         this.createReminderField(contentEl);
-        this.createRepeatField(contentEl);
         this.createLabelsSelector(contentEl);
         this.createInsertNoteCheckbox(contentEl);
         this.createButtons(contentEl);
@@ -1256,10 +1073,11 @@ class CreateTaskModal extends Modal {
 
     createTaskContentField(contentEl: HTMLElement) {
         const taskContentContainer = contentEl.createDiv({ cls: 'field-container' });
-        taskContentContainer.createEl('label', { text: this.plugin.t('taskContent') + ' *' });
+        taskContentContainer.createEl('label', { text: this.plugin.t('taskContent') + ' *', cls: 'field-label' });
         const taskInput = taskContentContainer.createEl('input', {
             type: 'text',
-            placeholder: this.plugin.t('taskContentPlaceholder')
+            placeholder: this.plugin.t('taskContentPlaceholder'),
+            cls: 'task-input'
         });
         taskInput.addEventListener('input', (e) => {
             this.taskContent = (e.target as HTMLInputElement).value;
@@ -1270,7 +1088,7 @@ class CreateTaskModal extends Modal {
 
     createDescriptionField(contentEl: HTMLElement) {
         const descContainer = contentEl.createDiv({ cls: 'field-container' });
-        descContainer.createEl('label', { text: this.plugin.t('description') });
+        descContainer.createEl('label', { text: this.plugin.t('description'), cls: 'field-label' });
         
         const descTextarea = descContainer.createEl('textarea', {
             placeholder: this.plugin.t('descriptionPlaceholder'),
@@ -1284,9 +1102,9 @@ class CreateTaskModal extends Modal {
     createProjectSelector(contentEl: HTMLElement) {
         if (this.projects.length > 0) {
             const projectContainer = contentEl.createDiv({ cls: 'field-container' });
-            projectContainer.createEl('label', { text: this.plugin.t('project') + ':' });
+            projectContainer.createEl('label', { text: this.plugin.t('project'), cls: 'field-label' });
             
-            const projectSelect = projectContainer.createEl('select');
+            const projectSelect = projectContainer.createEl('select', { cls: 'project-select' });
             
             const defaultOption = projectSelect.createEl('option', { text: this.plugin.t('inbox') });
             defaultOption.value = '';
@@ -1307,7 +1125,7 @@ class CreateTaskModal extends Modal {
 
     createPrioritySelector(contentEl: HTMLElement) {
         const priorityContainer = contentEl.createDiv({ cls: 'field-container' });
-        priorityContainer.createEl('label', { text: this.plugin.t('priority') + ':' });
+        priorityContainer.createEl('label', { text: this.plugin.t('priority'), cls: 'field-label' });
         
         const prioritySelect = priorityContainer.createEl('select', { cls: 'priority-select' });
         
@@ -1333,24 +1151,25 @@ class CreateTaskModal extends Modal {
 
     createDueDateFields(contentEl: HTMLElement) {
         const dueDateContainer = contentEl.createDiv({ cls: 'field-container' });
-        dueDateContainer.createEl('label', { text: this.plugin.t('dateOnly') + ':' });
+        dueDateContainer.createEl('label', { text: this.plugin.t('deadline'), cls: 'field-label' });
         
         const dateTimeContainer = dueDateContainer.createDiv({ cls: 'date-time-duration-container' });
         
         this.dueDateButton = dateTimeContainer.createEl('button', { 
             text: this.dueDate || this.plugin.t('selectDate'),
-            cls: 'date-time-button'
+            cls: 'todoist-button date-button'
         });
         this.dueDateButton.addEventListener('click', () => {
-            new DatePickerModal(this.app, this.plugin, (selectedDate) => {
+            new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
                 this.dueDate = selectedDate;
+                this.repeatOption = repeat || '';
                 this.dueDateButton.setText(selectedDate);
             }).open();
         });
         
         this.dueTimeButton = dateTimeContainer.createEl('button', { 
             text: this.dueTime || this.plugin.t('selectTime'),
-            cls: 'date-time-button'
+            cls: 'todoist-button time-button'
         });
         this.dueTimeButton.addEventListener('click', () => {
             new TimePickerModal(this.app, this.plugin, (selectedTime) => {
@@ -1361,7 +1180,7 @@ class CreateTaskModal extends Modal {
         
         this.durationButton = dateTimeContainer.createEl('button', { 
             text: this.taskDuration > 0 ? this.formatDuration(this.taskDuration) : this.plugin.t('selectDuration'),
-            cls: 'date-time-button'
+            cls: 'todoist-button duration-button'
         });
         this.durationButton.addEventListener('click', () => {
             new DurationPickerModal(this.app, this.plugin, (selectedDuration) => {
@@ -1385,90 +1204,46 @@ class CreateTaskModal extends Modal {
 
     createReminderField(contentEl: HTMLElement) {
         const reminderContainer = contentEl.createDiv({ cls: 'field-container' });
-        reminderContainer.createEl('label', { text: this.plugin.t('reminder') + ':' });
+        reminderContainer.createEl('label', { text: this.plugin.t('reminder'), cls: 'field-label' });
         
-        const reminderSelect = reminderContainer.createEl('select');
-        
-        const reminderOptions = [
-            { value: '', key: 'noReminder' },
-            { value: '5 minutes before', key: '5minBefore' },
-            { value: '15 minutes before', key: '15minBefore' },
-            { value: '30 minutes before', key: '30minBefore' },
-            { value: '1 hour before', key: '1hourBefore' },
-            { value: '2 hours before', key: '2hoursBefore' },
-            { value: '1 day before', key: '1dayBefore' }
-        ];
-        
-        reminderOptions.forEach(option => {
-            const optionElement = reminderSelect.createEl('option', { text: this.plugin.t(option.key) });
-            optionElement.value = option.value;
+        this.reminderButton = reminderContainer.createEl('button', {
+            text: this.reminderTime || this.plugin.t('noReminder'),
+            cls: 'todoist-button reminder-button full-width'
         });
         
-        reminderSelect.addEventListener('change', (e) => {
-            this.reminderTime = (e.target as HTMLSelectElement).value;
-        });
-    }
-
-    createRepeatField(contentEl: HTMLElement) {
-        const repeatContainer = contentEl.createDiv({ cls: 'field-container' });
-        repeatContainer.createEl('label', { text: this.plugin.t('repeatTask') + ':' });
-        
-        const repeatSelect = repeatContainer.createEl('select');
-        
-        const repeatOptions = [
-            { value: '', key: 'noRepeat' },
-            { value: 'every day', key: 'daily' },
-            { value: 'every week', key: 'weekly' },
-            { value: 'every weekday', key: 'weekdays' },
-            { value: 'every month', key: 'monthly' },
-            { value: 'every year', key: 'yearly' }
-        ];
-        
-        repeatOptions.forEach(option => {
-            const optionElement = repeatSelect.createEl('option', { text: this.plugin.t(option.key) });
-            optionElement.value = option.value;
-        });
-        
-        repeatSelect.addEventListener('change', (e) => {
-            this.repeatOption = (e.target as HTMLSelectElement).value;
+        this.reminderButton.addEventListener('click', () => {
+            new ReminderPickerModal(this.app, this.plugin, (selectedReminder) => {
+                this.reminderTime = selectedReminder;
+                this.reminderButton.setText(selectedReminder || this.plugin.t('noReminder'));
+            }).open();
         });
     }
 
     createLabelsSelector(contentEl: HTMLElement) {
         if (this.labels.length > 0) {
             const labelsContainer = contentEl.createDiv({ cls: 'field-container' });
-            labelsContainer.createEl('label', { text: this.plugin.t('labels') + ':' });
+            labelsContainer.createEl('label', { text: this.plugin.t('labels'), cls: 'field-label' });
             
-            const labelsGrid = labelsContainer.createDiv({ cls: 'labels-grid' });
+            this.labelsButton = labelsContainer.createEl('button', {
+                text: this.selectedLabels.length > 0 ? `${this.selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` : this.plugin.t('labels'),
+                cls: 'todoist-button labels-button full-width'
+            });
             
-            this.labels.forEach(label => {
-                const labelContainer = labelsGrid.createDiv({ cls: 'label-item' });
-                
-                const checkbox = labelContainer.createEl('input', { type: 'checkbox' });
-                checkbox.addEventListener('change', (e) => {
-                    if ((e.target as HTMLInputElement).checked) {
-                        this.selectedLabels.push(label.name);
-                        labelContainer.style.backgroundColor = `${label.color}20`;
-                        labelContainer.style.borderColor = label.color;
-                    } else {
-                        this.selectedLabels = this.selectedLabels.filter(l => l !== label.name);
-                        labelContainer.style.backgroundColor = 'transparent';
-                        labelContainer.style.borderColor = 'var(--background-modifier-border)';
-                    }
-                });
-                
-                const labelText = labelContainer.createEl('span', { text: label.name });
-                labelText.style.color = 'var(--text-normal)'; // Mantener color del texto
-                
-                // Establecer colores iniciales
-                labelContainer.style.borderColor = label.color || 'var(--background-modifier-border)';
-                labelContainer.style.border = '1px solid';
+            this.labelsButton.addEventListener('click', () => {
+                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
+                    this.selectedLabels = selectedLabels;
+                    this.labelsButton.setText(
+                        selectedLabels.length > 0 
+                            ? `${selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` 
+                            : this.plugin.t('labels')
+                    );
+                }).open();
             });
         }
     }
 
     createInsertNoteCheckbox(contentEl: HTMLElement) {
-        const insertContainer = contentEl.createDiv({ cls: 'field-container' });
+        const insertContainer = contentEl.createDiv({ cls: 'field-container checkbox-container' });
         
         const insertCheckbox = insertContainer.createEl('input', { type: 'checkbox' });
         insertCheckbox.checked = this.plugin.settings.insertTaskInNote;
@@ -1477,20 +1252,24 @@ class CreateTaskModal extends Modal {
             this.plugin.saveSettings();
         });
         
-        const insertLabel = insertContainer.createEl('label', { text: ' ' + this.plugin.t('insertInNote') });
-        insertLabel.style.marginLeft = '5px';
+        const insertLabel = insertContainer.createEl('label', { text: this.plugin.t('insertInNote'), cls: 'checkbox-label' });
     }
 
     createButtons(contentEl: HTMLElement) {
         const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
 
-        const cancelButton = buttonContainer.createEl('button', { text: this.plugin.t('cancel') });
+        const cancelButton = buttonContainer.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'cancel-button'
+        });
         cancelButton.addEventListener('click', () => {
             this.close();
         });
 
-        this.createButton = buttonContainer.createEl('button', { text: this.plugin.t('createTaskBtn') });
-        this.createButton.addClass('mod-cta');
+        this.createButton = buttonContainer.createEl('button', { 
+            text: this.plugin.t('createTaskBtn'),
+            cls: 'create-button'
+        });
         this.createButton.addEventListener('click', async () => {
             await this.createTask();
         });
@@ -1515,7 +1294,7 @@ class CreateTaskModal extends Modal {
                 reminder: this.reminderTime
             };
 
-            // Manejar fecha y hora
+            // Manejar fecha y hora con repetición
             if (this.dueDate) {
                 let dueString = this.dueDate;
                 
@@ -1523,7 +1302,7 @@ class CreateTaskModal extends Modal {
                     dueString += ` at ${this.dueTime}`;
                 }
                 
-                if (this.repeatOption) {
+                if (this.repeatOption && this.repeatOption.trim() !== '') {
                     dueString += ` ${this.repeatOption}`;
                 }
                 
@@ -1559,6 +1338,86 @@ class CreateTaskModal extends Modal {
     }
 }
 
+// Modal para seleccionar etiquetas
+class LabelsPickerModal extends Modal {
+    plugin: TodoistPlugin;
+    labels: TodoistLabel[];
+    selectedLabels: string[];
+    onLabelsSelect: (labels: string[]) => void;
+    private tempSelectedLabels: string[];
+
+    constructor(app: App, plugin: TodoistPlugin, labels: TodoistLabel[], selectedLabels: string[], onLabelsSelect: (labels: string[]) => void) {
+        super(app);
+        this.plugin = plugin;
+        this.labels = labels;
+        this.selectedLabels = selectedLabels;
+        this.onLabelsSelect = onLabelsSelect;
+        this.tempSelectedLabels = [...selectedLabels];
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: this.plugin.t('labels'), cls: 'modal-title' });
+
+        const labelsContainer = contentEl.createDiv({ cls: 'labels-picker-container' });
+
+        this.labels.forEach(label => {
+            const labelButton = labelsContainer.createEl('button', {
+                text: label.name,
+                cls: 'label-picker-button'
+            });
+
+            // Aplicar colores de la etiqueta
+            labelButton.style.borderColor = label.color || '#ccc';
+            labelButton.style.backgroundColor = this.tempSelectedLabels.includes(label.name) 
+                ? `${label.color}20` 
+                : 'transparent';
+
+            if (this.tempSelectedLabels.includes(label.name)) {
+                labelButton.addClass('selected');
+            }
+
+            labelButton.addEventListener('click', () => {
+                if (this.tempSelectedLabels.includes(label.name)) {
+                    // Remover etiqueta
+                    this.tempSelectedLabels = this.tempSelectedLabels.filter(l => l !== label.name);
+                    labelButton.removeClass('selected');
+                    labelButton.style.backgroundColor = 'transparent';
+                } else {
+                    // Agregar etiqueta
+                    this.tempSelectedLabels.push(label.name);
+                    labelButton.addClass('selected');
+                    labelButton.style.backgroundColor = `${label.color}20`;
+                }
+            });
+        });
+
+        // Botones de acción
+        const buttonContainer = contentEl.createDiv({ cls: 'button-container' });
+
+        const cancelButton = buttonContainer.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'cancel-button'
+        });
+        cancelButton.addEventListener('click', () => this.close());
+
+        const saveButton = buttonContainer.createEl('button', { 
+            text: this.plugin.t('save'),
+            cls: 'create-button'
+        });
+        saveButton.addEventListener('click', () => {
+            this.onLabelsSelect(this.tempSelectedLabels);
+            this.close();
+        });
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+// Configuraciones del plugin
 class TodoistSettingTab extends PluginSettingTab {
     plugin: TodoistPlugin;
 
@@ -1718,5 +1577,378 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
     }
-}
+} ${this.settings.apiToken}`
+                }
+            });
+            this.apiStatus = response.ok;
+            return this.apiStatus;
+        } catch (error) {
+            this.apiStatus = false;
+            return false;
+        }
+    }
+
+    async preloadData() {
+        if (this.settings.apiToken) {
+            try {
+                await Promise.all([
+                    this.getProjects(),
+                    this.getLabels()
+                ]);
+            } catch (error) {
+                console.log('Preload failed, will load on demand');
+            }
+        }
+    }
+
+    startAutoRefresh() {
+        this.stopAutoRefresh();
+        if (this.settings.autoRefresh && this.settings.refreshInterval > 0) {
+            this.refreshInterval = setInterval(async () => {
+                await this.refreshCache();
+            }, this.settings.refreshInterval * 1000);
+        }
+    }
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    }
+
+    startSync() {
+        this.stopSync();
+        if (this.settings.enableSync && this.settings.syncInterval > 0) {
+            this.syncInterval = setInterval(async () => {
+                await this.syncTasks();
+            }, this.settings.syncInterval * 1000);
+        }
+    }
+
+    stopSync() {
+        if (this.syncInterval) {
+            clearInterval(this.syncInterval);
+            this.syncInterval = null;
+        }
+    }
+
+    async syncTasks() {
+        if (!this.settings.apiToken || this.taskMappings.size === 0) {
+            return;
+        }
+
+        try {
+            for (const [taskId, mapping] of this.taskMappings) {
+                const task = await this.getTodoistTask(taskId);
+                if (task) {
+                    await this.updateTaskInObsidian(task, mapping);
+                }
+            }
+        } catch (error) {
+            console.error('Sync error:', error);
+        }
+    }
+
+    async getTodoistTask(taskId: string): Promise<TodoistTask | null> {
+        try {
+            const response = await fetch(`https://api.todoist.com/rest/v2/tasks/${taskId}`, {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                }
+            });
+
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (error) {
+            console.error('Error fetching task:', error);
+        }
+        return null;
+    }
+
+    async updateTaskInObsidian(task: TodoistTask, mapping: TaskMapping) {
+        try {
+            const file = this.app.vault.getAbstractFileByPath(mapping.file);
+            if (file instanceof TFile) {
+                const content = await this.app.vault.read(file);
+                const lines = content.split('\n');
+                
+                if (lines[mapping.line] && lines[mapping.line].includes('#tasktodo')) {
+                    const currentLine = lines[mapping.line];
+                    const isCurrentlyChecked = currentLine.includes('- [x]');
+                    const shouldBeChecked = task.is_completed;
+                    
+                    if (isCurrentlyChecked !== shouldBeChecked) {
+                        if (shouldBeChecked) {
+                            lines[mapping.line] = currentLine.replace('- [ ]', '- [x]');
+                        } else {
+                            lines[mapping.line] = currentLine.replace('- [x]', '- [ ]');
+                        }
+                        
+                        // Actualizar el mapping con el nuevo contenido
+                        mapping.lineContent = lines[mapping.line];
+                        
+                        await this.app.vault.modify(file, lines.join('\n'));
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error updating task in Obsidian:', error);
+        }
+    }
+
+    // MEJORADO: Manejar cambios en el editor
+    async handleEditorChange(editor: Editor, view: MarkdownView) {
+        try {
+            const cursor = editor.getCursor();
+            const currentLine = editor.getLine(cursor.line);
             
+            // Buscar tareas con #tasktodo en la línea actual
+            const taskMatch = this.findTaskInLine(currentLine);
+            if (taskMatch) {
+                const { taskId, isCompleted } = taskMatch;
+                console.log(`Detected task ${taskId} change to ${isCompleted ? 'completed' : 'uncompleted'}`);
+                
+                // Actualizar en Todoist
+                const success = await this.updateTodoistTask(taskId, isCompleted);
+                if (success) {
+                    // Actualizar el mapping local
+                    const mapping = this.taskMappings.get(taskId);
+                    if (mapping) {
+                        mapping.lineContent = currentLine;
+                        mapping.line = cursor.line;
+                        this.saveTaskMappings();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error handling editor change:', error);
+        }
+    }
+
+    // NUEVO: Manejar cambios en archivos
+    async handleFileChange(file: TFile) {
+        try {
+            const content = await this.app.vault.read(file);
+            const lines = content.split('\n');
+            
+            // Revisar todas las líneas que tienen mappings en este archivo
+            for (const [taskId, mapping] of this.taskMappings) {
+                if (mapping.file === file.path && lines[mapping.line]) {
+                    const currentLine = lines[mapping.line];
+                    
+                    // Verificar si la línea ha cambiado
+                    if (currentLine !== mapping.lineContent && currentLine.includes('#tasktodo')) {
+                        const taskMatch = this.findTaskInLine(currentLine);
+                        if (taskMatch && taskMatch.taskId === taskId) {
+                            console.log(`File change detected for task ${taskId}: ${taskMatch.isCompleted ? 'completed' : 'uncompleted'}`);
+                            
+                            const success = await this.updateTodoistTask(taskId, taskMatch.isCompleted);
+                            if (success) {
+                                mapping.lineContent = currentLine;
+                                this.saveTaskMappings();
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error handling file change:', error);
+        }
+    }
+
+    // NUEVO: Función para encontrar tareas en una línea
+    private findTaskInLine(line: string): { taskId: string; isCompleted: boolean } | null {
+        // Buscar patrón de checkbox con #tasktodo
+        const checkboxMatch = line.match(/- \[([ x])\].*#tasktodo/);
+        if (checkboxMatch) {
+            // Buscar ID de tarea en el enlace de Todoist
+            const taskIdMatch = line.match(/todoist\.com\/(?:app\/)?(?:task\/)?(\d+)/);
+            if (taskIdMatch) {
+                return {
+                    taskId: taskIdMatch[1],
+                    isCompleted: checkboxMatch[1] === 'x'
+                };
+            }
+        }
+        return null;
+    }
+
+    async updateTodoistTask(taskId: string, isCompleted: boolean): Promise<boolean> {
+        try {
+            const url = isCompleted 
+                ? `https://api.todoist.com/rest/v2/tasks/${taskId}/close`
+                : `https://api.todoist.com/rest/v2/tasks/${taskId}/reopen`;
+                
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                }
+            });
+
+            if (response.ok) {
+                const message = isCompleted ? this.t('taskCompleted') : this.t('taskUncompleted');
+                new Notice(message);
+                return true;
+            } else {
+                console.error('Failed to update Todoist task:', response.status, response.statusText);
+                return false;
+            }
+        } catch (error) {
+            console.error('Error updating Todoist task:', error);
+            new Notice(this.t('syncError'));
+            return false;
+        }
+    }
+
+    async loadTaskMappings() {
+        try {
+            const data = await this.loadData();
+            if (data?.taskMappings) {
+                this.taskMappings = new Map();
+                for (const [taskId, mapping] of Object.entries(data.taskMappings)) {
+                    this.taskMappings.set(taskId, mapping as TaskMapping);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading task mappings:', error);
+        }
+    }
+
+    async saveTaskMappings() {
+        try {
+            const data = await this.loadData() || {};
+            data.taskMappings = Object.fromEntries(this.taskMappings);
+            await this.saveData(data);
+        } catch (error) {
+            console.error('Error saving task mappings:', error);
+        }
+    }
+
+    async refreshCache() {
+        this.lastFetch = 0;
+        await Promise.all([
+            this.getProjects(),
+            this.getLabels()
+        ]);
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+        
+        if (this.settings.autoRefresh) {
+            this.startAutoRefresh();
+        } else {
+            this.stopAutoRefresh();
+        }
+
+        if (this.settings.enableSync) {
+            this.startSync();
+        } else {
+            this.stopSync();
+        }
+
+        await this.testApiConnection();
+    }
+
+    async createTaskFromText(content: string) {
+        if (!this.settings.apiToken) {
+            new Notice(this.t('configureApiFirst'));
+            return;
+        }
+
+        const loadingNotice = new Notice(this.t('creating'), 0);
+        
+        try {
+            const taskData: TaskCreationData = {
+                content: content,
+                project_id: this.settings.defaultProject,
+                priority: 1,
+                labels: []
+            };
+
+            const task = await this.createTodoistTask(taskData);
+            
+            loadingNotice.hide();
+            
+            if (this.settings.insertTaskInNote) {
+                await this.insertTaskInCurrentNote(task);
+            }
+            
+            new Notice(`${this.t('taskCreated')}: ${task.content}`);
+        } catch (error) {
+            loadingNotice.hide();
+            new Notice(`${this.t('errorCreatingTask')}: ${error.message}`);
+            console.error('Error creating Todoist task:', error);
+        }
+    }
+
+    async createTodoistTask(taskData: TaskCreationData): Promise<TodoistTask> {
+        const url = 'https://api.todoist.com/rest/v2/tasks';
+        
+        const requestData: any = {
+            content: taskData.content,
+            priority: taskData.priority
+        };
+
+        if (taskData.project_id && taskData.project_id !== '') {
+            requestData.project_id = taskData.project_id;
+        }
+
+        if (taskData.description && taskData.description.trim() !== '') {
+            requestData.description = taskData.description;
+        }
+
+        if (taskData.due_string) {
+            requestData.due_string = taskData.due_string;
+        } else if (taskData.due_datetime) {
+            requestData.due_datetime = taskData.due_datetime;
+        } else if (taskData.due_date) {
+            requestData.due_date = taskData.due_date;
+        }
+
+        if (taskData.labels && taskData.labels.length > 0) {
+            requestData.labels = taskData.labels;
+        }
+
+        if (taskData.duration && taskData.duration_unit) {
+            requestData.duration = taskData.duration;
+            requestData.duration_unit = taskData.duration_unit;
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.settings.apiToken}`
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        }
+
+        const task = await response.json();
+
+        if (taskData.reminder && task.id) {
+            this.createReminder(task.id, taskData.reminder).catch(console.warn);
+        }
+
+        return task;
+    }
+
+    async createReminder(taskId: string, reminderTime: string): Promise<void> {
+        try {
+            const response = await fetch('https://api.todoist.com/rest/v2/reminders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer

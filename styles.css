@@ -190,30 +190,150 @@
     color: #78909c !important;
 }
 
-/* Checkbox container - CORREGIDO para evitar superposición */
-.checkbox-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 0;
+/* Contenedor para recordatorio, etiquetas e insertar nota - EN LA MISMA LÍNEA */
+.reminder-labels-insert-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
     margin-bottom: 16px;
 }
 
-.checkbox-container input[type="checkbox"] {
-    width: 16px !important;
-    height: 16px !important;
-    margin: 0 !important;
-    cursor: pointer;
-    flex-shrink: 0;
+.reminder-field,
+.labels-field,
+.insert-field {
+    display: flex;
+    flex-direction: column;
 }
 
-.checkbox-label {
+.reminder-field .field-label,
+.labels-field .field-label,
+.insert-field .field-label {
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Botón de recordatorio inline */
+.inline-reminder-button {
+    padding: 9px 10px !important;
+    border: 1px solid #66bb6a !important;
+    border-radius: 6px !important;
+    background: var(--background-primary) !important;
+    color: #66bb6a !important;
+    font-family: var(--font-ui) !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-align: left !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    height: 36px !important;
+}
+
+.inline-reminder-button:hover {
+    border-color: #66bb6a !important;
+    background: rgba(102, 187, 106, 0.1) !important;
+}
+
+/* Lista de etiquetas inline */
+.inline-labels-list {
+    padding: 9px 10px !important;
+    border: 1px solid #78909c !important;
+    border-radius: 6px !important;
+    background: var(--background-primary) !important;
+    color: #78909c !important;
+    font-family: var(--font-ui) !important;
+    font-size: 12px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-align: left !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 72px !important;
+    overflow-y: auto !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+}
+
+.inline-labels-list:hover {
+    border-color: #78909c !important;
+    background: rgba(120, 144, 156, 0.1) !important;
+}
+
+.inline-labels-list.empty {
+    justify-content: flex-start !important;
+}
+
+/* Etiquetas individuales en la lista */
+.inline-label-tag {
+    background: rgba(120, 144, 156, 0.2) !important;
+    color: var(--text-normal) !important;
+    padding: 2px 6px !important;
+    border-radius: 10px !important;
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(120, 144, 156, 0.4) !important;
+    display: inline-block !important;
+    white-space: nowrap !important;
+}
+
+/* Checkbox inline - SIN SUPERPOSICIÓN */
+.inline-checkbox-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 9px 10px !important;
+    border: 1px solid var(--background-modifier-border) !important;
+    border-radius: 6px !important;
+    background: var(--background-primary) !important;
+    height: 36px !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.inline-checkbox-container:hover {
+    border-color: #dc4c3e !important;
+    background: rgba(220, 76, 62, 0.05) !important;
+}
+
+.inline-checkbox-container input[type="checkbox"] {
+    width: 14px !important;
+    height: 14px !important;
     margin: 0 !important;
-    font-size: 13px !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+}
+
+.inline-checkbox-container .checkbox-label {
+    margin: 0 !important;
+    font-size: 12px !important;
     color: var(--text-normal) !important;
     cursor: pointer !important;
-    line-height: 1.4 !important;
-    flex: 1;
+    line-height: 1.2 !important;
+    flex: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Campo de insertar nota como field normal */
+.insert-field .field-label {
+    font-size: 12px !important;
+    margin-bottom: 6px !important;
+}
+
+/* Eliminar el checkbox-container anterior para evitar conflictos */
+.checkbox-container {
+    display: none !important;
 }
 
 /* Contenedor para selectores en línea - NUEVO */
@@ -789,6 +909,28 @@
     .inline-selectors-container {
         grid-template-columns: 1fr !important;
         gap: 12px;
+    }
+    
+    /* Recordatorio, etiquetas e insertar en móvil - en columna */
+    .reminder-labels-insert-container {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+    
+    /* Etiquetas más compactas en móvil */
+    .inline-labels-list {
+        max-height: 50px !important;
+        font-size: 11px !important;
+    }
+    
+    .inline-label-tag {
+        font-size: 9px !important;
+        padding: 1px 4px !important;
+    }
+    
+    /* Checkbox más compacto en móvil */
+    .inline-checkbox-container .checkbox-label {
+        font-size: 11px !important;
     }
     
     .labels-picker-container {

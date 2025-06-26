@@ -1381,8 +1381,7 @@ class CreateTaskModal extends Modal {
         this.createDescriptionField(contentEl);
         this.createInlineSelectors(contentEl);
         this.createDueDateFields(contentEl);
-        this.createReminderField(contentEl);
-        this.createInsertNoteCheckbox(contentEl);
+        this.createReminderLabelsInsert(contentEl);
         this.createButtons(contentEl);
     }
 
@@ -1463,28 +1462,6 @@ class CreateTaskModal extends Modal {
         prioritySelect.addEventListener('change', (e) => {
             this.selectedPriority = parseInt((e.target as HTMLSelectElement).value);
         });
-
-        // Etiquetas ocupando toda la línea siguiente
-        if (this.labels.length > 0) {
-            const labelsContainer = contentEl.createDiv({ cls: 'field-container' });
-            labelsContainer.createEl('label', { text: this.plugin.t('labels'), cls: 'field-label' });
-            
-            this.labelsButton = labelsContainer.createEl('button', {
-                text: this.selectedLabels.length > 0 ? `${this.selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` : this.plugin.t('labels'),
-                cls: 'inline-labels-button'
-            });
-            
-            this.labelsButton.addEventListener('click', () => {
-                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
-                    this.selectedLabels = selectedLabels;
-                    this.labelsButton.setText(
-                        selectedLabels.length > 0 
-                            ? `${selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` 
-                            : this.plugin.t('labels')
-                    );
-                }).open();
-            });
-        }
     }
 
     createDueDateFields(contentEl: HTMLElement) {
@@ -1565,13 +1542,16 @@ class CreateTaskModal extends Modal {
         }
     }
 
-    createReminderField(contentEl: HTMLElement) {
-        const reminderContainer = contentEl.createDiv({ cls: 'field-container' });
-        reminderContainer.createEl('label', { text: this.plugin.t('reminder'), cls: 'field-label' });
+    createReminderLabelsInsert(contentEl: HTMLElement) {
+        const container = contentEl.createDiv({ cls: 'reminder-labels-insert-container' });
         
-        this.reminderButton = reminderContainer.createEl('button', {
+        // Campo de Recordatorio
+        const reminderField = container.createDiv({ cls: 'reminder-field' });
+        reminderField.createEl('label', { text: this.plugin.t('reminder'), cls: 'field-label' });
+        
+        this.reminderButton = reminderField.createEl('button', {
             text: this.reminderTime || this.plugin.t('noReminder'),
-            cls: 'todoist-button reminder-button full-width'
+            cls: 'inline-reminder-button'
         });
         
         this.reminderButton.addEventListener('click', () => {
@@ -1580,12 +1560,31 @@ class CreateTaskModal extends Modal {
                 this.reminderButton.setText(selectedReminder || this.plugin.t('noReminder'));
             }).open();
         });
-    }
 
-    createInsertNoteCheckbox(contentEl: HTMLElement) {
-        const insertContainer = contentEl.createDiv({ cls: 'field-container' });
+        // Campo de Etiquetas (como lista)
+        if (this.labels.length > 0) {
+            const labelsField = container.createDiv({ cls: 'labels-field' });
+            labelsField.createEl('label', { text: this.plugin.t('labels'), cls: 'field-label' });
+            
+            this.labelsButton = labelsField.createEl('div', {
+                cls: 'inline-labels-list empty'
+            });
+            
+            this.updateLabelsDisplay();
+            
+            this.labelsButton.addEventListener('click', () => {
+                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
+                    this.selectedLabels = selectedLabels;
+                    this.updateLabelsDisplay();
+                }).open();
+            });
+        }
+
+        // Campo de Insertar en Nota
+        const insertField = container.createDiv({ cls: 'insert-field' });
+        insertField.createEl('label', { text: this.plugin.t('insertInNote'), cls: 'field-label' });
         
-        const checkboxContainer = insertContainer.createDiv({ cls: 'checkbox-container' });
+        const checkboxContainer = insertField.createDiv({ cls: 'inline-checkbox-container' });
         
         const insertCheckbox = checkboxContainer.createEl('input', { 
             type: 'checkbox',
@@ -1598,10 +1597,56 @@ class CreateTaskModal extends Modal {
         });
         
         const insertLabel = checkboxContainer.createEl('label', { 
-            text: this.plugin.t('insertInNote'), 
+            text: 'Insertar',
             cls: 'checkbox-label',
             attr: { for: 'insert-task-checkbox' }
         });
+    }
+
+    updateLabelsDisplay() {
+        if (!this.labelsButton) return;
+        
+        this.labelsButton.empty();
+        
+        if (this.selectedLabels.length === 0) {
+            this.labelsButton.addClass('empty');
+            this.labelsButton.setText(this.plugin.t('labels'));
+        } else {
+            this.labelsButton.removeClass('empty');
+            
+            this.selectedLabels.forEach(labelName => {
+                const labelTag = this.labelsButton.createEl('span', {
+                    text: labelName,
+                    cls: 'inline-label-tag'
+                });
+                
+                // Aplicar color de la etiqueta
+                const label = this.labels.find(l => l.name === labelName);
+                if (label?.color) {
+                    labelTag.style.backgroundColor = `${label.color}20`;
+                    labelTag.style.borderColor = label.color;
+                    labelTag.style.color = label.color;
+                }
+            });
+            
+            // Si hay muchas etiquetas, agregar indicador
+            if (this.selectedLabels.length > 3) {
+                const moreIndicator = this.labelsButton.createEl('span', {
+                    text: '...',
+                    cls: 'inline-label-tag'
+                });
+                moreIndicator.style.backgroundColor = 'var(--background-modifier-border)';
+                moreIndicator.style.color = 'var(--text-muted)';
+            }
+        }
+    }
+
+    createReminderField(contentEl: HTMLElement) {
+        // Este método ahora está integrado en createReminderLabelsInsert
+    }
+
+    createInsertNoteCheckbox(contentEl: HTMLElement) {
+        // Este método ahora está integrado en createReminderLabelsInsert
     }
 
     createButtons(contentEl: HTMLElement) {

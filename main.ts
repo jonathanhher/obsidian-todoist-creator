@@ -1487,18 +1487,6 @@ class CreateTaskModal extends Modal {
         }
     }
 
-    createProjectSelector(contentEl: HTMLElement) {
-        // Este método ahora está integrado en createInlineSelectors
-    }
-
-    createPrioritySelector(contentEl: HTMLElement) {
-        // Este método ahora está integrado en createInlineSelectors
-    }
-
-    createLabelsSelector(contentEl: HTMLElement) {
-        // Este método ahora está integrado en createInlineSelectors
-    }
-
     createDueDateFields(contentEl: HTMLElement) {
         // Contenedor para los dos campos de fecha
         const datesContainer = contentEl.createDiv({ cls: 'date-fields-container' });
@@ -1592,29 +1580,6 @@ class CreateTaskModal extends Modal {
                 this.reminderButton.setText(selectedReminder || this.plugin.t('noReminder'));
             }).open();
         });
-    }
-
-    createLabelsSelector(contentEl: HTMLElement) {
-        if (this.labels.length > 0) {
-            const labelsContainer = contentEl.createDiv({ cls: 'field-container' });
-            labelsContainer.createEl('label', { text: this.plugin.t('labels'), cls: 'field-label' });
-            
-            this.labelsButton = labelsContainer.createEl('button', {
-                text: this.selectedLabels.length > 0 ? `${this.selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` : this.plugin.t('labels'),
-                cls: 'todoist-button labels-button full-width'
-            });
-            
-            this.labelsButton.addEventListener('click', () => {
-                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
-                    this.selectedLabels = selectedLabels;
-                    this.labelsButton.setText(
-                        selectedLabels.length > 0 
-                            ? `${selectedLabels.length} ${this.plugin.t('labels').toLowerCase()}` 
-                            : this.plugin.t('labels')
-                    );
-                }).open();
-            });
-        }
     }
 
     createInsertNoteCheckbox(contentEl: HTMLElement) {

@@ -309,7 +309,7 @@ export default class TodoistPlugin extends Plugin {
     
     // Mapeo de tareas para sincronización
     private taskMappings: Map<string, TaskMapping> = new Map();
-    private apiStatus: boolean = false;
+    public apiStatus: boolean = false;
 
     async onload() {
         await this.loadSettings();

@@ -1,6 +1,117 @@
-                return `<span class="todoist-label" style="background-color: ${labelColor}20; border-color: ${labelColor}; color: var(--text-normal);">${label}</span>`;
-            }).join(' ') : '';
         const dueText = task.due ? `<span class="todoist-due">${task.due.string}</span>` : '';
+        const descText = task.description ? `<span class="todoist-description">${task.description}</span>` : '';
+        
+        const taskText = this.settings.taskNoteTemplate
+            .replace('{{content}}', task.content)
+            .replace('{{url}}', task.url)
+            .replace('{{id}}', task.id)
+            .replace('{{priority}}', priorityText)
+            .replace('{{labels}}', labelsText)
+            .replace('{{due}}', dueText)
+            .replace('{{description}}', descText);
+        
+        const finalText = taskText.includes('#tasktodo') ? taskText : `${taskText} #tasktodo`;
+        
+        editor.replaceRange(finalText + '\n', cursor);
+        
+        if (this.settings.enableSync) {
+            const file = activeView.file;
+            if (file) {
+                this.taskMappings.set(task.id, {
+                    todoistId: task.id,
+                    file: file.path,
+                    line: cursor.line,
+                    lineContent: finalText
+                });
+                this.saveTaskMappings();
+                console.log(`Saved mapping for task ${task.id} at line ${cursor.line}`);
+            }
+        }
+        
+        const newLine = cursor.line + 1;
+        editor.setCursor({ line: newLine, ch: 0 });
+    }
+
+    getLabelColor(labelName: string): string {
+        const label = this.labelsCache.find(l => l.name === labelName);
+        return label?.color || '#808080';
+    }
+
+    getPriorityText(priority: number): string {
+        switch (priority) {
+            case 4: return 'P1';
+            case 3: return 'P2';
+            case 2: return 'P3';
+            case 1: return 'P4';
+            default: return 'P4';
+        }
+    }
+
+    getPriorityTextWithColor(priority: number): string {
+        const text = this.getPriorityText(priority);
+        const className = `todoist-priority-${text.toLowerCase()}`;
+        return `<span class="${className}">${text}</span>`;
+    }
+
+    async getProjects(): Promise<TodoistProject[]> {
+        if (!this.settings.apiToken) {
+            return [];
+        }
+
+        const now = Date.now();
+        if (this.projectsCache.length > 0 && (now - this.lastFetch) < this.cacheDuration) {
+            return this.projectsCache;
+        }
+
+        try {
+            const response = await fetch('https://api.todoist.com/rest/v2/projects', {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            this.projectsCache = await response.json();
+            this.lastFetch = now;
+            return this.projectsCache;
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+            return this.projectsCache;
+        }
+    }
+
+    async getLabels(): Promise<TodoistLabel[]> {
+        if (!this.settings.apiToken) {
+            return [];
+        }
+
+        const now = Date.now();
+        if (this.labelsCache.length > 0 && (now - this.lastFetch) < this.cacheDuration) {
+            return this.labelsCache;
+        }
+
+        try {
+            const response = await fetch('https://api.todoist.com/rest/v2/labels', {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            this.labelsCache = await response.json();
+            return this.labelsCache;
+        } catch (error) {
+            console.error('Error fetching labels:', error);
+            return this.labelsCache;
+        }
+    }
+}task.due.string}</span>` : '';
         const descText = task.description ? `<span class="todoist-description">${task.description}</span>` : '';
         
         const taskText = this.settings.taskNoteTemplate
@@ -115,7 +226,6 @@
     }
 }
 
-// Modal para configurar API Token
 class ApiTokenModal extends Modal {
     plugin: TodoistPlugin;
     tokenInput: HTMLInputElement;
@@ -222,7 +332,6 @@ class ApiTokenModal extends Modal {
     }
 }
 
-// Modal para seleccionar fecha
 class DatePickerModal extends Modal {
     plugin: TodoistPlugin;
     onDateSelect: (date: string, repeat?: string) => void;
@@ -299,10 +408,7 @@ class DatePickerModal extends Modal {
         });
 
         const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-
-        this.renderCalendar(contentEl, currentMonth, currentYear);
+        this.renderCalendar(contentEl, now.getMonth(), now.getFullYear());
     }
 
     formatDate(date: Date): string {
@@ -316,14 +422,12 @@ class DatePickerModal extends Modal {
         }
 
         const calendarContainer = container.createDiv({ cls: 'calendar-container' });
-
         const headerEl = calendarContainer.createDiv({ cls: 'calendar-header' });
 
         const prevButton = headerEl.createEl('button', { text: '‹', cls: 'calendar-nav-button' });
         const monthYearEl = headerEl.createEl('span', { 
             text: new Date(year, month).toLocaleDateString(this.plugin.settings.language === 'es' ? 'es' : 'en', { 
-                month: 'long', 
-                year: 'numeric' 
+                month: 'long', year: 'numeric' 
             }),
             cls: 'calendar-month-year'
         });
@@ -346,7 +450,7 @@ class DatePickerModal extends Modal {
             : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             
         daysOfWeek.forEach(day => {
-            const dayEl = calendarEl.createEl('div', { text: day, cls: 'calendar-day-header' });
+            calendarEl.createEl('div', { text: day, cls: 'calendar-day-header' });
         });
 
         const firstDay = new Date(year, month, 1).getDay();
@@ -359,22 +463,19 @@ class DatePickerModal extends Modal {
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dayEl = calendarEl.createEl('div', { text: day.toString(), cls: 'calendar-day' });
-
             const currentDate = new Date(year, month, day);
             const isToday = currentDate.toDateString() === today.toDateString();
-            const isPast = currentDate < today;
             
             if (isToday) {
                 dayEl.addClass('calendar-day-today');
             }
             
-            if (isPast) {
+            if (currentDate < today) {
                 dayEl.addClass('calendar-day-past');
             }
 
             dayEl.addEventListener('click', () => {
-                const selectedDate = this.formatDate(currentDate);
-                this.onDateSelect(selectedDate, this.selectedRepeat);
+                this.onDateSelect(this.formatDate(currentDate), this.selectedRepeat);
                 this.close();
             });
         }
@@ -392,7 +493,6 @@ class DatePickerModal extends Modal {
     }
 }
 
-// Modal para seleccionar hora
 class TimePickerModal extends Modal {
     plugin: TodoistPlugin;
     onTimeSelect: (time: string) => void;
@@ -408,7 +508,6 @@ class TimePickerModal extends Modal {
         contentEl.createEl('h3', { text: this.plugin.t('selectTime'), cls: 'modal-title' });
 
         const timeContainer = contentEl.createDiv({ cls: 'time-container' });
-
         const currentTime = new Date();
         const currentHour = currentTime.getHours();
         const currentMinute = Math.floor(currentTime.getMinutes() / 15) * 15;
@@ -418,20 +517,14 @@ class TimePickerModal extends Modal {
                 const timeString = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
                 const displayTime = new Date(0, 0, 0, hour, minute).toLocaleTimeString(
                     this.plugin.settings.language === 'es' ? 'es' : 'en', 
-                    { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        hour12: false 
-                    }
+                    { hour: '2-digit', minute: '2-digit', hour12: false }
                 );
 
                 const timeEl = timeContainer.createEl('div', { text: displayTime, cls: 'time-option' });
 
                 if (hour === currentHour && minute === currentMinute) {
                     timeEl.addClass('time-option-current');
-                    setTimeout(() => {
-                        timeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 100);
+                    setTimeout(() => timeEl.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
                 }
 
                 timeEl.addEventListener('click', () => {
@@ -454,7 +547,6 @@ class TimePickerModal extends Modal {
     }
 }
 
-// Modal para seleccionar recordatorio
 class ReminderPickerModal extends Modal {
     plugin: TodoistPlugin;
     onReminderSelect: (reminder: string) => void;
@@ -506,7 +598,6 @@ class ReminderPickerModal extends Modal {
     }
 }
 
-// Modal para seleccionar duración
 class DurationPickerModal extends Modal {
     plugin: TodoistPlugin;
     onDurationSelect: (duration: number) => void;
@@ -564,7 +655,6 @@ class DurationPickerModal extends Modal {
     }
 }
 
-// Modal principal de creación de tareas
 class CreateTaskModal extends Modal {
     plugin: TodoistPlugin;
     taskContent: string = '';
@@ -677,10 +767,10 @@ class CreateTaskModal extends Modal {
         const prioritySelect = priorityContainer.createEl('select', { cls: 'priority-select' });
         
         const priorities = [
-            { value: 4, key: 'p1Urgent', color: '#d1453b' },
-            { value: 3, key: 'p2High', color: '#eb8909' },
-            { value: 2, key: 'p3Medium', color: '#246fe0' },
-            { value: 1, key: 'p4Low', color: '#666666' }
+            { value: 4, key: 'p1Urgent' },
+            { value: 3, key: 'p2High' },
+            { value: 2, key: 'p3Medium' },
+            { value: 1, key: 'p4Low' }
         ];
         
         priorities.forEach(priority => {
@@ -883,7 +973,6 @@ class CreateTaskModal extends Modal {
     }
 }
 
-// Modal para seleccionar etiquetas
 class LabelsPickerModal extends Modal {
     plugin: TodoistPlugin;
     labels: TodoistLabel[];
@@ -958,7 +1047,6 @@ class LabelsPickerModal extends Modal {
     }
 }
 
-// Configuraciones del plugin
 class TodoistSettingTab extends PluginSettingTab {
     plugin: TodoistPlugin;
 
@@ -1107,7 +1195,7 @@ class TodoistSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
     }
-}// main.ts - Versión Final Corregida con Sincronización Bidireccional
+}// main.ts - Versión Final Corregida
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, MarkdownFileInfo, TFile } from 'obsidian';
 
 interface TodoistPluginSettings {
@@ -1140,7 +1228,6 @@ const DEFAULT_SETTINGS: TodoistPluginSettings = {
     defaultDuration: 60
 }
 
-// Traducciones
 const translations = {
     en: {
         'createTask': 'Create Todoist Task',
@@ -1163,7 +1250,6 @@ const translations = {
         'selectTime': 'Select Time',
         'selectDuration': 'Select Duration',
         'noReminder': 'No reminder',
-        'noDuration': 'No duration',
         'p1Urgent': 'P1 - Urgent',
         'p2High': 'P2 - High',
         'p3Medium': 'P3 - Medium',
@@ -1266,7 +1352,6 @@ const translations = {
         'selectTime': 'Seleccionar Hora',
         'selectDuration': 'Seleccionar Duración',
         'noReminder': 'Sin recordatorio',
-        'noDuration': 'Sin duración',
         'p1Urgent': 'P1 - Urgente',
         'p2High': 'P2 - Alta',
         'p3Medium': 'P3 - Media',
@@ -1900,4 +1985,6 @@ export default class TodoistPlugin extends Plugin {
         const labelsText = task.labels && task.labels.length > 0 ? 
             task.labels.map(label => {
                 const labelColor = this.getLabelColor(label);
-                return `<span class="todoist-label" style="background-color: ${labelColor}20; border-color: ${labelColor}; color: var(--text-normal);"
+                return `<span class="todoist-label" style="background-color: ${labelColor}20; border-color: ${labelColor}; color: var(--text-normal);">${label}</span>`;
+            }).join(' ') : '';
+        const dueText = task.due ? `<span class="todoist-due">${

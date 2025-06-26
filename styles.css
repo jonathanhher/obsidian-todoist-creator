@@ -1,0 +1,829 @@
+/* Estilos para el modal de creación de tareas */
+.todoist-modal {
+    padding: 20px;
+    max-height: 80vh;
+    overflow-y: auto;
+    width: 600px;
+    max-width: 90vw;
+}
+
+.todoist-modal h2 {
+    margin-bottom: 20px;
+    color: var(--text-normal);
+}
+
+.todoist-modal h3 {
+    margin-bottom: 15px;
+    color: var(--text-normal);
+}
+
+.todoist-modal label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+.todoist-modal input[type="text"],
+.todoist-modal input[type="password"],
+.todoist-modal input[type="date"],
+.todoist-modal input[type="time"],
+.todoist-modal select,
+.todoist-modal textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-ui);
+    box-sizing: border-box;
+}
+
+.todoist-modal input[type="text"]:focus,
+.todoist-modal input[type="password"]:focus,
+.todoist-modal input[type="date"]:focus,
+.todoist-modal input[type="time"]:focus,
+.todoist-modal select:focus,
+.todoist-modal textarea:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.todoist-modal .checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.todoist-modal input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.todoist-modal .button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.todoist-modal button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.todoist-modal button:hover {
+    background: var(--background-modifier-hover);
+}
+
+.todoist-modal button.mod-cta {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+
+.todoist-modal button.mod-cta:hover {
+    background: var(--interactive-accent-hover);
+    border-color: var(--interactive-accent-hover);
+}
+
+.todoist-modal button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Estilos específicos para campos del modal */
+.todoist-modal .date-time-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.todoist-modal .date-time-container button {
+    flex: 1;
+    text-align: left;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+}
+
+.todoist-modal .date-time-container button:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+    color: var(--text-normal);
+}
+
+.todoist-modal .labels-grid {
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    padding: 12px;
+    border-radius: 4px;
+    background: var(--background-primary-alt);
+}
+
+.todoist-modal .label-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.todoist-modal .label-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.todoist-modal .label-item input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.todoist-modal .label-item span {
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+.todoist-modal .field-container {
+    margin-top: 15px;
+}
+
+.todoist-modal .field-container:first-child {
+    margin-top: 0;
+}
+
+/* Estilos para el calendario */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin: 10px 0;
+}
+
+.calendar-day {
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.calendar-day:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+}
+
+.calendar-day.today {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.calendar-day.selected {
+    background: var(--interactive-accent-hover);
+    color: var(--text-on-accent);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-nav-button {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--text-normal);
+}
+
+.calendar-nav-button:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* Estilos para el selector de tiempo */
+.time-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-primary);
+}
+
+.time-option {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--background-modifier-border);
+    transition: background 0.2s ease;
+}
+
+.time-option:last-child {
+    border-bottom: none;
+}
+
+.time-option:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* Estilos para el modal de API token */
+.api-token-modal {
+    padding: 25px;
+    width: 500px;
+    max-width: 90vw;
+}
+
+.api-token-modal input[type="password"] {
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+.api-token-modal a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.api-token-modal a:hover {
+    text-decoration: underline;
+}
+
+/* Estilos para las tareas insertadas en las notas */
+.todoist-task-link {
+    color: var(--text-accent);
+    text-decoration: none;
+}
+
+.todoist-task-link:hover {
+    text-decoration: underline;
+}
+
+/* Colores de prioridades estilo Todoist */
+.todoist-priority-p1 {
+    color: #d1453b !important;
+    background: #d1453b20;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.8em;
+    border: 1px solid #d1453b40;
+}
+
+.todoist-priority-p2 {
+    color: #eb8909 !important;
+    background: #eb890920;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.8em;
+    border: 1px solid #eb890940;
+}
+
+.todoist-priority-p3 {
+    color: #246fe0 !important;
+    background: #246fe020;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.8em;
+    border: 1px solid #246fe040;
+}
+
+.todoist-priority-p4 {
+    color: #666666 !important;
+    background: #66666620;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.8em;
+    border: 1px solid #66666640;
+}
+
+/* Estilos para etiquetas */
+.todoist-label {
+    color: var(--text-accent);
+    background: var(--background-modifier-border);
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    margin: 0 2px;
+    display: inline-block;
+    border: 1px solid var(--background-modifier-border);
+}
+
+.todoist-due {
+    color: #ea4c89;
+    font-size: 0.9em;
+    margin-left: 5px;
+    font-weight: 500;
+}
+
+.todoist-description {
+    color: var(--text-muted);
+    font-style: italic;
+    margin-left: 5px;
+    font-size: 0.9em;
+}
+
+/* Tag #tasktodo con estilo Todoist */
+.tag[href="#tasktodo"] {
+    background: linear-gradient(135deg, #db4c3f, #ff9478);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    text-decoration: none;
+    display: inline-block;
+    margin-left: 8px;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(219, 76, 63, 0.3);
+    transition: all 0.2s ease;
+}
+
+.tag[href="#tasktodo"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(219, 76, 63, 0.4);
+    background: linear-gradient(135deg, #ff9478, #db4c3f);
+}
+
+/* Estilos para checkboxes completados */
+.markdown-preview-view .task-list-item.is-checked {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+.markdown-preview-view .task-list-item.is-checked .todoist-priority-p1,
+.markdown-preview-view .task-list-item.is-checked .todoist-priority-p2,
+.markdown-preview-view .task-list-item.is-checked .todoist-priority-p3,
+.markdown-preview-view .task-list-item.is-checked .todoist-priority-p4 {
+    opacity: 0.5;
+}
+
+/* Configuraciones */
+.setting-item-description {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+
+/* Animaciones suaves */
+.todoist-priority-p1,
+.todoist-priority-p2,
+.todoist-priority-p3,
+.todoist-priority-p4,
+.todoist-label,
+.tag[href="#tasktodo"] {
+    transition: all 0.2s ease;
+}
+
+/* Hover effects para prioridades */
+.todoist-priority-p1:hover { transform: scale(1.05); }
+.todoist-priority-p2:hover { transform: scale(1.05); }
+.todoist-priority-p3:hover { transform: scale(1.05); }
+.todoist-priority-p4:hover { transform: scale(1.05); }
+
+/* Estilos dark mode específicos */
+.theme-dark .todoist-priority-p1 {
+    background: #d1453b30;
+    border-color: #d1453b60;
+}
+
+.theme-dark .todoist-priority-p2 {
+    background: #eb890930;
+    border-color: #eb890960;
+}
+
+.theme-dark .todoist-priority-p3 {
+    background: #246fe030;
+    border-color: #246fe060;
+}
+
+.theme-dark .todoist-priority-p4 {
+    background: #66666630;
+    border-color: #66666660;
+}
+
+/* Responsive design para modal */
+@media (max-width: 600px) {
+    .todoist-modal {
+        width: 95vw;
+        padding: 15px;
+    }
+    
+    .todoist-modal .date-time-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .todoist-modal .labels-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .calendar-grid {
+        gap: 4px;
+    }
+    
+    .calendar-day {
+        padding: 12px 4px;
+        font-size: 0.9em;
+    }
+}
+
+/* Efectos visuales adicionales */
+.todoist-modal .labels-grid .label-item {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Estilos para sincronización */
+.sync-indicator {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}/* Estilos para el modal de creación de tareas */
+.todoist-modal {
+    padding: 20px;
+    max-height: 80vh;
+    overflow-y: auto;
+    width: 600px;
+    max-width: 90vw;
+}
+
+.todoist-modal h2 {
+    margin-bottom: 20px;
+    color: var(--text-normal);
+}
+
+.todoist-modal h3 {
+    margin-bottom: 15px;
+    color: var(--text-normal);
+}
+
+.todoist-modal label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+.todoist-modal input[type="text"],
+.todoist-modal input[type="password"],
+.todoist-modal input[type="date"],
+.todoist-modal input[type="time"],
+.todoist-modal select,
+.todoist-modal textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-ui);
+    box-sizing: border-box;
+}
+
+.todoist-modal input[type="text"]:focus,
+.todoist-modal input[type="password"]:focus,
+.todoist-modal input[type="date"]:focus,
+.todoist-modal input[type="time"]:focus,
+.todoist-modal select:focus,
+.todoist-modal textarea:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.todoist-modal .checkbox-container {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.todoist-modal input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.todoist-modal .button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.todoist-modal button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.todoist-modal button:hover {
+    background: var(--background-modifier-hover);
+}
+
+.todoist-modal button.mod-cta {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+
+.todoist-modal button.mod-cta:hover {
+    background: var(--interactive-accent-hover);
+    border-color: var(--interactive-accent-hover);
+}
+
+/* Estilos específicos para campos del modal */
+.todoist-modal .date-time-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.todoist-modal .date-time-container button {
+    flex: 1;
+    text-align: left;
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    color: var(--text-muted);
+}
+
+.todoist-modal .date-time-container button:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+    color: var(--text-normal);
+}
+
+.todoist-modal .labels-grid {
+    margin-top: 5px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    padding: 12px;
+    border-radius: 4px;
+    background: var(--background-primary-alt);
+}
+
+.todoist-modal .label-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    border-radius: 3px;
+}
+
+.todoist-modal .label-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.todoist-modal .label-item input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.todoist-modal .label-item span {
+    font-size: 0.9em;
+    color: var(--text-normal);
+}
+
+.todoist-modal .field-container {
+    margin-top: 15px;
+}
+
+.todoist-modal .field-container:first-child {
+    margin-top: 0;
+}
+
+/* Estilos para el calendario */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin: 10px 0;
+}
+
+.calendar-day {
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.calendar-day:hover {
+    background: var(--background-modifier-hover);
+    border-color: var(--interactive-accent);
+}
+
+.calendar-day.today {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.calendar-day.selected {
+    background: var(--interactive-accent-hover);
+    color: var(--text-on-accent);
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-nav-button {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--text-normal);
+}
+
+.calendar-nav-button:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* Estilos para el selector de tiempo */
+.time-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background: var(--background-primary);
+}
+
+.time-option {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--background-modifier-border);
+    transition: background 0.2s ease;
+}
+
+.time-option:last-child {
+    border-bottom: none;
+}
+
+.time-option:hover {
+    background: var(--background-modifier-hover);
+}
+
+/* Estilos para el modal de API token */
+.api-token-modal {
+    padding: 25px;
+    width: 500px;
+    max-width: 90vw;
+}
+
+.api-token-modal input[type="password"] {
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+.api-token-modal a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.api-token-modal a:hover {
+    text-decoration: underline;
+}
+
+/* Estilos para las tareas insertadas en las notas */
+.todoist-task-link {
+    color: var(--text-accent);
+    text-decoration: none;
+}
+
+.todoist-task-link:hover {
+    text-decoration: underline;
+}
+
+.todoist-priority {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+
+.todoist-priority.p1 {
+    background-color: #d1453b;
+    color: white;
+}
+
+.todoist-priority.p2 {
+    background-color: #eb8909;
+    color: white;
+}
+
+.todoist-priority.p3 {
+    background-color: #246fe0;
+    color: white;
+}
+
+.todoist-priority.p4 {
+    background-color: #666666;
+    color: white;
+}
+
+.todoist-labels {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin-left: 5px;
+}
+
+.todoist-due {
+    color: var(--text-accent);
+    font-size: 0.9em;
+    margin-left: 5px;
+}
+
+.todoist-description {
+    color: var(--text-muted);
+    font-style: italic;
+    margin-left: 5px;
+}
+
+/* Tag #tasktodo */
+.tag[href="#tasktodo"] {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    text-decoration: none;
+    display: inline-block;
+    margin-left: 8px;
+}
+
+/* Configuraciones */
+.setting-item-description {
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+
+/* Responsive design para modal */
+@media (max-width: 600px) {
+    .todoist-modal {
+        width: 95vw;
+        padding: 15px;
+    }
+    
+    .todoist-modal .date-time-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .todoist-modal .labels-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .calendar-grid {
+        gap: 4px;
+    }
+    
+    .calendar-day {
+        padding: 12px 4px;
+        font-size: 0.9em;
+    }
+}

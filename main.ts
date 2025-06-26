@@ -44,9 +44,9 @@ const translations = {
         'deadline': 'Due Date',
         'dueTime': 'Due Time (optional)',
         'duration': 'Duration (optional)',
-        'reminder': 'Reminder (optional)',
+        'reminder': 'Reminder',
         'labels': 'Labels',
-        'insertInNote': 'Insert reference in current note',
+        'insertInNote': 'Insert in note',
         'cancel': 'Cancel',
         'createTaskBtn': 'Create Task',
         'selectDate': 'Date',
@@ -148,7 +148,7 @@ const translations = {
         'duration': 'Duración (opcional)',
         'reminder': 'Recordatorio (opcional)',
         'labels': 'Etiquetas',
-        'insertInNote': 'Insertar referencia en la nota actual',
+        'insertInNote': 'Insertar en nota',
         'cancel': 'Cancelar',
         'createTaskBtn': 'Crear Tarea',
         'selectDate': 'Fecha',
@@ -1353,7 +1353,7 @@ class CreateTaskModal extends Modal {
     dueTimeButton: HTMLButtonElement;
     durationButton: HTMLButtonElement;
     reminderButton: HTMLButtonElement;
-    labelsButton: HTMLButtonElement;
+    labelsButton: HTMLElement;
     createButton: HTMLButtonElement;
 
     constructor(app: App, plugin: TodoistPlugin) {

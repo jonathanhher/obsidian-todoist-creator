@@ -104,3 +104,6 @@ data.json
 # Build files
 main.js
 *.js.map
+
+#Claude
+CLAUDE.md

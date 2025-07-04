@@ -7,6 +7,7 @@ interface TodoistPluginSettings {
     taskTemplate: string;
     insertTaskInNote: boolean;
     taskNoteTemplate: string;
+    repeatTaskTemplate: string;
     autoRefresh: boolean;
     refreshInterval: number;
     language: 'en' | 'es';
@@ -14,6 +15,12 @@ interface TodoistPluginSettings {
     syncInterval: number;
     defaultTime: string;
     defaultDuration: number;
+    enableTimeSelection: boolean;
+    consolidatedNotePath: string;
+    consolidatedNoteFilters: {
+        projects: string[];
+        labels: string[];
+    };
 }
 
 const DEFAULT_SETTINGS: TodoistPluginSettings = {
@@ -22,13 +29,20 @@ const DEFAULT_SETTINGS: TodoistPluginSettings = {
     taskTemplate: '{{content}}',
     insertTaskInNote: true,
     taskNoteTemplate: '- [ ] {{content}} [📋]({{url}}) {{priority}} {{labels}} {{due}} {{description}} #tasktodo',
+    repeatTaskTemplate: '- [ ] {{content}} [📋]({{url}}) {{priority}} {{labels}} {{due}} {{description}} #repeattodo',
     autoRefresh: false,
     refreshInterval: 300,
     language: 'es',
     enableSync: true,
     syncInterval: 60,
     defaultTime: '08:00',
-    defaultDuration: 60
+    defaultDuration: 60,
+    enableTimeSelection: false,
+    consolidatedNotePath: 'tasks/consolidated-tasks',
+    consolidatedNoteFilters: {
+        projects: [],
+        labels: []
+    }
 }
 
 const translations = {
@@ -120,6 +134,17 @@ const translations = {
         'weekdays': 'Weekdays (Mon-Fri)',
         'monthly': 'Monthly',
         'yearly': 'Yearly',
+        'generateConsolidatedNote': 'Generate consolidated note',
+        'consolidatedNotePath': 'Consolidated note path',
+        'consolidatedNotePathDesc': 'Path where consolidated task note will be created',
+        'selectProjects': 'Select projects',
+        'selectLabels': 'Select labels',
+        'noProjectsSelected': 'No projects selected',
+        'noLabelsSelected': 'No labels selected',
+        'enableTimeSelection': 'Enable time selection',
+        'enableTimeSelectionDesc': 'Allow time selection for tasks (disabled by default)',
+        'consolidatedNoteGenerated': 'Consolidated note generated',
+        'consolidatedFilters': 'Consolidated note filters',
         '15min': '15 minutes',
         '30min': '30 minutes',
         '45min': '45 minutes',
@@ -222,6 +247,17 @@ const translations = {
         'weekdays': 'Días laborales (Lun-Vie)',
         'monthly': 'Mensualmente',
         'yearly': 'Anualmente',
+        'generateConsolidatedNote': 'Generar nota consolidada',
+        'consolidatedNotePath': 'Ruta de nota consolidada',
+        'consolidatedNotePathDesc': 'Ruta donde se creará la nota consolidada de tareas',
+        'selectProjects': 'Seleccionar proyectos',
+        'selectLabels': 'Seleccionar etiquetas',
+        'noProjectsSelected': 'No hay proyectos seleccionados',
+        'noLabelsSelected': 'No hay etiquetas seleccionadas',
+        'enableTimeSelection': 'Habilitar selección de tiempo',
+        'enableTimeSelectionDesc': 'Permitir selección de tiempo para tareas (deshabilitado por defecto)',
+        'consolidatedNoteGenerated': 'Nota consolidada generada',
+        'consolidatedFilters': 'Filtros de nota consolidada',
         '15min': '15 minutos',
         '30min': '30 minutos',
         '45min': '45 minutos',
@@ -327,6 +363,14 @@ export default class TodoistPlugin extends Plugin {
                 } else {
                     new Notice(this.t('selectTextFirst'));
                 }
+            }
+        });
+
+        this.addCommand({
+            id: 'generate-consolidated-note',
+            name: this.t('generateConsolidatedNote'),
+            callback: () => {
+                this.generateConsolidatedNote();
             }
         });
 
@@ -775,7 +819,7 @@ export default class TodoistPlugin extends Plugin {
         }
     }
 
-    async insertTaskInCurrentNote(task: TodoistTask) {
+    async insertTaskInCurrentNote(task: TodoistTask, isRepeat: boolean = false) {
         const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
         if (!activeView) {
             return;
@@ -793,7 +837,10 @@ export default class TodoistPlugin extends Plugin {
         const dueText = task.due ? `<span class="todoist-due">${task.due.string}</span>` : '';
         const descText = task.description ? `<span class="todoist-description">${task.description}</span>` : '';
         
-        const taskText = this.settings.taskNoteTemplate
+        // Usar plantilla diferente para tareas repetitivas
+        const template = isRepeat ? this.settings.repeatTaskTemplate || this.settings.taskNoteTemplate : this.settings.taskNoteTemplate;
+        
+        const taskText = template
             .replace('{{content}}', task.content)
             .replace('{{url}}', task.url)
             .replace('{{id}}', task.id)
@@ -802,7 +849,9 @@ export default class TodoistPlugin extends Plugin {
             .replace('{{due}}', dueText)
             .replace('{{description}}', descText);
         
-        const finalText = taskText.includes('#tasktodo') ? taskText : `${taskText} #tasktodo`;
+        // Determinar el tag apropiado
+        const tag = isRepeat ? '#repeattodo' : '#tasktodo';
+        const finalText = taskText.includes(tag) ? taskText : `${taskText} ${tag}`;
         
         editor.replaceRange(finalText + '\n', cursor);
         
@@ -901,6 +950,177 @@ export default class TodoistPlugin extends Plugin {
         } catch (error) {
             console.error('Error fetching labels:', error);
             return this.labelsCache;
+        }
+    }
+
+    async getAllTodoistTasks(): Promise<TodoistTask[]> {
+        if (!this.settings.apiToken) {
+            return [];
+        }
+
+        try {
+            const response = await fetch('https://api.todoist.com/rest/v2/tasks', {
+                headers: {
+                    'Authorization': `Bearer ${this.settings.apiToken}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching all tasks:', error);
+            return [];
+        }
+    }
+
+    async generateConsolidatedNote() {
+        if (!this.settings.apiToken) {
+            new Notice(this.t('configureApiFirst'));
+            return;
+        }
+
+        if (!this.settings.consolidatedNotePath) {
+            new Notice(this.settings.language === 'es' ? 
+                'Configura la ruta de la nota consolidada en configuraciones primero' : 
+                'Configure consolidated note path in settings first');
+            return;
+        }
+
+        const loadingNotice = new Notice(
+            this.settings.language === 'es' ? 'Generando nota consolidada...' : 'Generating consolidated note...', 
+            0
+        );
+
+        try {
+            // Fetch data in parallel for better performance
+            const [tasks, projects, labels] = await Promise.all([
+                this.getAllTodoistTasks(),
+                this.getProjects(),
+                this.getLabels()
+            ]);
+
+            // Filter tasks based on settings
+            let filteredTasks = tasks.filter(task => !task.is_completed); // Only show incomplete tasks by default
+
+            if (this.settings.consolidatedNoteFilters.projects.length > 0) {
+                filteredTasks = filteredTasks.filter(task => 
+                    this.settings.consolidatedNoteFilters.projects.includes(task.project_id)
+                );
+            }
+
+            if (this.settings.consolidatedNoteFilters.labels.length > 0) {
+                filteredTasks = filteredTasks.filter(task => 
+                    task.labels && task.labels.some(label => 
+                        this.settings.consolidatedNoteFilters.labels.includes(label)
+                    )
+                );
+            }
+
+            // Generate note content with better formatting
+            let noteContent = `# ${this.settings.language === 'es' ? 'Tareas Consolidadas de Todoist' : 'Consolidated Todoist Tasks'}\n\n`;
+            noteContent += `*${this.settings.language === 'es' ? 'Generado el' : 'Generated on'}: ${new Date().toLocaleString()}*\n\n`;
+            
+            if (filteredTasks.length === 0) {
+                noteContent += this.settings.language === 'es' ? 
+                    'No se encontraron tareas que coincidan con los filtros especificados.\n' :
+                    'No tasks found matching the specified filters.\n';
+            } else {
+                // Group by project with better organization
+                const tasksByProject: { [key: string]: TodoistTask[] } = {};
+                
+                filteredTasks.forEach(task => {
+                    const project = projects.find(p => p.id === task.project_id);
+                    const projectName = project?.name || (this.settings.language === 'es' ? 'Bandeja de Entrada' : 'Inbox');
+                    if (!tasksByProject[projectName]) {
+                        tasksByProject[projectName] = [];
+                    }
+                    tasksByProject[projectName].push(task);
+                });
+
+                // Sort projects and generate content
+                const sortedProjectNames = Object.keys(tasksByProject).sort();
+                let totalTasks = 0;
+
+                sortedProjectNames.forEach(projectName => {
+                    const projectTasks = tasksByProject[projectName];
+                    totalTasks += projectTasks.length;
+                    
+                    noteContent += `## ${projectName} (${projectTasks.length})\n\n`;
+                    
+                    // Sort tasks by priority and due date
+                    projectTasks.sort((a, b) => {
+                        if (a.priority !== b.priority) {
+                            return b.priority - a.priority; // Higher priority first
+                        }
+                        if (a.due?.date && b.due?.date) {
+                            return new Date(a.due.date).getTime() - new Date(b.due.date).getTime();
+                        }
+                        return 0;
+                    });
+                    
+                    projectTasks.forEach(task => {
+                        const checkbox = task.is_completed ? '[x]' : '[ ]';
+                        const priorityText = this.getPriorityText(task.priority);
+                        const labelsText = task.labels && task.labels.length > 0 ? 
+                            task.labels.map(label => `#${label.replace(/\s+/g, '-')}`).join(' ') : '';
+                        const dueText = task.due ? ` 📅 ${task.due.string}` : '';
+                        const urlText = `[📋](${task.url})`;
+                        
+                        noteContent += `- ${checkbox} **${task.content}** ${urlText} ${priorityText}`;
+                        if (labelsText) noteContent += ` ${labelsText}`;
+                        if (dueText) noteContent += `${dueText}`;
+                        if (task.description) {
+                            noteContent += `\n  - *${task.description}*`;
+                        }
+                        noteContent += '\n';
+                    });
+                    
+                    noteContent += '\n';
+                });
+
+                // Add summary
+                noteContent += `---\n\n**${this.settings.language === 'es' ? 'Resumen' : 'Summary'}**: ${totalTasks} ${this.settings.language === 'es' ? 'tareas en' : 'tasks across'} ${sortedProjectNames.length} ${this.settings.language === 'es' ? 'proyectos' : 'projects'}\n`;
+            }
+
+            // Ensure the directory exists
+            const notePath = this.settings.consolidatedNotePath.endsWith('.md') ? 
+                this.settings.consolidatedNotePath : `${this.settings.consolidatedNotePath}.md`;
+            
+            const pathParts = notePath.split('/');
+            if (pathParts.length > 1) {
+                const dirPath = pathParts.slice(0, -1).join('/');
+                if (!this.app.vault.getAbstractFileByPath(dirPath)) {
+                    await this.app.vault.createFolder(dirPath);
+                }
+            }
+            
+            const file = this.app.vault.getAbstractFileByPath(notePath);
+            
+            if (file instanceof TFile) {
+                await this.app.vault.modify(file, noteContent);
+            } else {
+                await this.app.vault.create(notePath, noteContent);
+            }
+
+            loadingNotice.hide();
+            new Notice(this.t('consolidatedNoteGenerated'));
+            
+            // Open the note
+            const createdFile = this.app.vault.getAbstractFileByPath(notePath);
+            if (createdFile instanceof TFile) {
+                this.app.workspace.getLeaf().openFile(createdFile);
+            }
+            
+        } catch (error) {
+            loadingNotice.hide();
+            const errorMessage = this.settings.language === 'es' ? 
+                `Error generando nota consolidada: ${error.message}` :
+                `Error generating consolidated note: ${error.message}`;
+            new Notice(errorMessage);
+            console.error('Error generating consolidated note:', error);
         }
     }
 }
@@ -1501,19 +1721,26 @@ class CreateTaskModal extends Modal {
         // Contenedor para tiempo y duración
         const timeDurationContainer = contentEl.createDiv({ cls: 'time-duration-container' });
         
-        // Campo de Tiempo
-        const timeField = timeDurationContainer.createDiv({ cls: 'date-field' });
-        timeField.createEl('label', { text: this.plugin.t('selectTime'), cls: 'field-label' });
-        this.dueTimeButton = timeField.createEl('button', { 
-            text: this.dueTime || this.plugin.t('selectTime'),
-            cls: 'todoist-button time-button'
-        });
-        this.dueTimeButton.addEventListener('click', () => {
-            new TimePickerModal(this.app, this.plugin, (selectedTime) => {
-                this.dueTime = selectedTime;
-                this.dueTimeButton.setText(selectedTime);
-            }).open();
-        });
+        // Campo de Tiempo (solo si está habilitado)
+        if (this.plugin.settings.enableTimeSelection) {
+            const timeField = timeDurationContainer.createDiv({ cls: 'date-field' });
+            timeField.createEl('label', { text: this.plugin.t('selectTime'), cls: 'field-label' });
+            this.dueTimeButton = timeField.createEl('button', { 
+                text: this.dueTime || this.plugin.t('selectTime'),
+                cls: 'todoist-button time-button'
+            });
+            this.dueTimeButton.addEventListener('click', () => {
+                new TimePickerModal(this.app, this.plugin, (selectedTime) => {
+                    this.dueTime = selectedTime;
+                    if (this.dueTimeButton) {
+                        this.dueTimeButton.setText(selectedTime);
+                    }
+                }).open();
+            });
+        } else {
+            // Reset time if time selection is disabled
+            this.dueTime = '';
+        }
         
         // Campo de Duración
         const durationField = timeDurationContainer.createDiv({ cls: 'date-field' });
@@ -1691,7 +1918,8 @@ class CreateTaskModal extends Modal {
             if (this.dueDate) {
                 let dueString = this.dueDate;
                 
-                if (this.dueTime) {
+                // Only add time if time selection is enabled and time is set
+                if (this.plugin.settings.enableTimeSelection && this.dueTime) {
                     dueString += ` at ${this.dueTime}`;
                 }
                 
@@ -1710,7 +1938,8 @@ class CreateTaskModal extends Modal {
             const task = await this.plugin.createTodoistTask(taskData);
             
             if (this.plugin.settings.insertTaskInNote) {
-                await this.plugin.insertTaskInCurrentNote(task);
+                const isRepeatTask = !!(this.repeatOption && this.repeatOption.trim() !== '');
+                await this.plugin.insertTaskInCurrentNote(task, isRepeatTask);
             }
             
             new Notice(`${this.plugin.t('taskCreated')}: ${task.content}`);
@@ -1950,6 +2179,38 @@ class TodoistSettingTab extends PluginSettingTab {
                 .onChange(async (value) => {
                     this.plugin.settings.insertTaskInNote = value;
                     await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName(this.plugin.t('enableTimeSelection'))
+            .setDesc(this.plugin.t('enableTimeSelectionDesc'))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.enableTimeSelection)
+                .onChange(async (value) => {
+                    this.plugin.settings.enableTimeSelection = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        containerEl.createEl('h3', { text: this.plugin.t('consolidatedFilters') });
+
+        new Setting(containerEl)
+            .setName(this.plugin.t('consolidatedNotePath'))
+            .setDesc(this.plugin.t('consolidatedNotePathDesc'))
+            .addText(text => text
+                .setPlaceholder('tasks/consolidated-tasks')
+                .setValue(this.plugin.settings.consolidatedNotePath)
+                .onChange(async (value) => {
+                    this.plugin.settings.consolidatedNotePath = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        const generateButton = new Setting(containerEl)
+            .setName(this.plugin.t('generateConsolidatedNote'))
+            .setDesc('Generate a consolidated note with all Todoist tasks based on filters')
+            .addButton(button => button
+                .setButtonText(this.plugin.t('generateConsolidatedNote'))
+                .onClick(() => {
+                    this.plugin.generateConsolidatedNote();
                 }));
     }
 }

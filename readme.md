@@ -1,10 +1,11 @@
 # Obsidian Todoist Creator Plugin - Versión Completa
 
-Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en Todoist directamente desde tus notas con todas las funcionalidades avanzadas de Todoist y un diseño optimizado.
+Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en Todoist directamente desde tus notas con todas las funcionalidades avanzadas de Todoist, tareas repetitivas, nota consolidada y un diseño optimizado.
 
-![Plugin Version](https://img.shields.io/badge/version-2.1.0-blue)
+![Plugin Version](https://img.shields.io/badge/version-2.2.0-blue)
 ![Obsidian](https://img.shields.io/badge/obsidian-compatible-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Author](https://img.shields.io/badge/author-Jonathan%20Hernandez-orange)
 
 ## 🚀 Características Principales
 
@@ -74,6 +75,11 @@ Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en To
 1. Selecciona texto en tu nota
 2. `Ctrl+P` → "Crear tarea desde selección"
 
+**Método 3:** Generar nota consolidada
+1. `Ctrl+P` (o `Cmd+P` en Mac)
+2. Busca "Generar nota consolidada"
+3. Se crea automáticamente una vista unificada de todas tus tareas
+
 ### 🎨 Interfaz Optimizada
 
 #### **Layout Compacto:**
@@ -134,7 +140,7 @@ Configura tiempo estimado de completación:
 - **1-2 horas**: Tareas estándar  
 - **3-8 horas**: Proyectos extensos
 
-### 🔄 Tareas Recurrentes
+### 🔄 Tareas Recurrentes con #repeattodo
 
 Crea tareas que se repiten automáticamente:
 - **Diariamente**: Cada día
@@ -142,6 +148,64 @@ Crea tareas que se repiten automáticamente:
 - **Días laborales**: Lunes a Viernes únicamente
 - **Mensualmente**: Mismo día cada mes
 - **Anualmente**: Fechas especiales
+
+**Características especiales:**
+- **🏷️ Etiqueta automática**: Las tareas repetitivas reciben automáticamente el tag `#repeattodo`
+- **🔄 Identificación clara**: Fácil diferenciación entre tareas normales y repetitivas
+- **📋 Plantilla personalizable**: Formato específico para tareas recurrentes
+
+### 📋 Nota Consolidada **NUEVO** v2.2
+
+Genera automáticamente una vista unificada de todas tus tareas de Todoist:
+
+**🎯 Funcionalidades:**
+- **📊 Vista centralizada**: Todas las tareas en una sola nota de Obsidian
+- **🔍 Filtrado inteligente**: Por proyectos y etiquetas específicas
+- **📁 Organización por proyecto**: Agrupación automática con contadores
+- **⚡ Priorización automática**: Ordenado por prioridad y fecha límite
+- **📈 Resumen estadístico**: Contador total de tareas y proyectos
+- **🔗 Enlaces directos**: Cada tarea enlaza directamente a Todoist
+- **🎨 Formato enriquecido**: Prioridades visuales y etiquetas con formato
+
+**🛠️ Configuración:**
+1. **Ruta de nota**: Define dónde se creará la nota consolidada
+2. **Filtros por proyecto**: Selecciona proyectos específicos (opcional)
+3. **Filtros por etiqueta**: Selecciona etiquetas específicas (opcional)
+4. **Generación automática**: Un comando genera toda la vista
+
+**📋 Ejemplo de salida:**
+```markdown
+# Tareas Consolidadas de Todoist
+
+*Generado el: 4/7/2025, 10:30:00*
+
+## Trabajo (5)
+- [ ] **Revisar propuesta cliente** [📋](https://todoist.com/task/123) P1 #urgente 📅 hoy
+- [ ] **Preparar presentación** [📋](https://todoist.com/task/124) P2 #meeting 📅 mañana
+
+## Personal (3)
+- [ ] **Comprar víveres** [📋](https://todoist.com/task/125) P3 #compras 📅 esta semana
+
+---
+
+**Resumen**: 8 tareas en 2 proyectos
+```
+
+### ⏰ Tiempo Opcional **NUEVO** v2.2
+
+La función de tiempo ahora es completamente opcional:
+
+**🔧 Configuración:**
+- **❌ Deshabilitada por defecto**: El selector de tiempo no aparece automáticamente
+- **⚙️ Activación manual**: Habilita en configuraciones si necesitas tiempo específico
+- **🎯 Enfoque simplificado**: Interfaz más limpia sin campos innecesarios
+- **⚡ Mejor rendimiento**: Menos elementos en el formulario
+
+**💡 Beneficios:**
+- **🚀 Creación más rápida**: Menos campos que completar
+- **🎨 Interfaz más limpia**: Solo lo esencial visible
+- **🔧 Control total**: Activas solo si lo necesitas
+- **📱 Mejor en móvil**: Menos elementos táctiles
 
 ### ⚡ Prioridades con Colores
 
@@ -265,6 +329,20 @@ obsidian-todoist-creator/
 
 ## 🏆 Changelog
 
+### v2.2.0 - Release con Tareas Repetitivas y Nota Consolidada 🚀
+- 🔄 **NUEVO**: Tareas repetitivas con etiqueta #repeattodo automática
+- 📋 **NUEVO**: Funcionalidad de nota consolidada con filtros por proyecto y etiquetas
+- ⏰ **NUEVO**: Función de tiempo 100% opcional (deshabilitada por defecto)
+- 🎯 **NUEVO**: Comando para generar vista unificada de todas las tareas
+- 📊 **NUEVO**: Resumen estadístico en nota consolidada
+- 🔧 **NUEVO**: Configuración granular de filtros para nota consolidada
+- ⚡ **OPTIMIZADO**: Mejor manejo de errores y rendimiento
+- 🌍 **MEJORADO**: Traducciones más completas para nuevas funcionalidades
+- 🏷️ **MEJORADO**: Mejor formateo de etiquetas en nota consolidada
+- 📁 **MEJORADO**: Creación automática de directorios para nota consolidada
+- 👤 **ACTUALIZADO**: Información del autor (Jonathan Hernandez)
+- 🔗 **ACTUALIZADO**: Enlaces al repositorio GitHub
+
 ### v2.1.0 - Release Optimizado 🎨
 - 🎨 **MEJORADO**: Diseño completamente rediseñado estilo Todoist
 - 🎨 **MEJORADO**: Layout inline optimizado (Proyecto + Prioridad)
@@ -314,26 +392,33 @@ Si encuentras problemas o tienes sugerencias:
 
 - 📋 **Revisa la sección de solución de problemas**
 - 🔗 **Verifica que el indicador de API esté verde**
-- 📦 **Confirma que tienes la última versión v2.1**
+- 📦 **Confirma que tienes la última versión v2.2**
 - 🐛 **Abre un issue** con detalles del problema
 
-## 🌟 Características Destacadas v2.1
+## 🌟 Características Destacadas v2.2
 
 ### 🎯 Experiencia de Usuario Superior
 - **⚡ Más rápido**: Cache inteligente y optimizaciones
 - **🎨 Más bonito**: Diseño compacto estilo Todoist real
 - **📱 Más accesible**: Responsive design optimizado
 - **🔧 Más confiable**: Indicadores de estado y mejor manejo de errores
+- **📋 Más organizado**: Vista consolidada de todas las tareas
 
 ### 🚀 Productividad Maximizada
 - **⏰ Fechas rápidas**: "Hoy" o "Mañana" con un clic
 - **⏱️ Duración precisa**: Planificación mejorada
-- **🔄 Repetición automática**: Hábitos y rutinas
+- **🔄 Repetición automática**: Hábitos y rutinas con #repeattodo
 - **🎨 Visual mejorado**: Identificación instantánea de prioridades
 - **🏷️ Etiquetas claras**: Lista visual con colores preservados
+- **📊 Vista unificada**: Consolidación inteligente por proyecto y etiquetas
+- **⚙️ Control granular**: Tiempo opcional, filtros personalizables
 
 ---
 
-**¡Plugin completamente optimizado y listo para uso profesional! 🚀✨**
+**¡Plugin completamente optimizado con tareas repetitivas y nota consolidada! 🚀✨**
 
-> *Desarrollado con ❤️ para la comunidad de Obsidian*
+> *Desarrollado con ❤️ por Jonathan Hernandez para la comunidad de Obsidian*
+> 
+> **Repositorio**: [https://github.com/jonathanhher/obsidian-todoist-creator](https://github.com/jonathanhher/obsidian-todoist-creator)
+> 
+> **Versión actual**: 2.2.0 - Con tareas repetitivas y nota consolidada

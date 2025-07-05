@@ -21,6 +21,8 @@ interface TodoistPluginSettings {
         projects: string[];
         labels: string[];
     };
+    autoRefreshConsolidated: boolean;
+    consolidatedRefreshInterval: number;
 }
 
 const DEFAULT_SETTINGS: TodoistPluginSettings = {
@@ -42,7 +44,9 @@ const DEFAULT_SETTINGS: TodoistPluginSettings = {
     consolidatedNoteFilters: {
         projects: [],
         labels: []
-    }
+    },
+    autoRefreshConsolidated: true,
+    consolidatedRefreshInterval: 60
 }
 
 const translations = {
@@ -60,6 +64,8 @@ const translations = {
         'duration': 'Duration (optional)',
         'reminder': 'Reminder',
         'repeat': 'Repeat',
+        'optional': 'Optional',
+        'noDuration': 'No duration',
         'labels': 'Labels',
         'insertInNote': 'Insert in note',
         'cancel': 'Cancel',
@@ -146,6 +152,10 @@ const translations = {
         'enableTimeSelectionDesc': 'Allow time selection for tasks (disabled by default)',
         'consolidatedNoteGenerated': 'Consolidated note generated',
         'consolidatedFilters': 'Consolidated note filters',
+        'autoRefreshConsolidated': 'Auto-refresh consolidated note',
+        'autoRefreshConsolidatedDesc': 'Automatically refresh the consolidated note at regular intervals',
+        'consolidatedRefreshInterval': 'Consolidated refresh interval',
+        'consolidatedRefreshIntervalDesc': 'How often to refresh the consolidated note (minutes)',
         '15min': '15 minutes',
         '30min': '30 minutes',
         '45min': '45 minutes',
@@ -174,6 +184,8 @@ const translations = {
         'duration': 'Duración (opcional)',
         'reminder': 'Recordatorio',
         'repeat': 'Repetir',
+        'opcional': 'Opcional',
+        'noDuration': 'Sin duración',
         'labels': 'Etiquetas',
         'insertInNote': 'Insertar en nota',
         'cancel': 'Cancelar',
@@ -260,6 +272,10 @@ const translations = {
         'enableTimeSelectionDesc': 'Permitir selección de tiempo para tareas (deshabilitado por defecto)',
         'consolidatedNoteGenerated': 'Nota consolidada generada',
         'consolidatedFilters': 'Filtros de nota consolidada',
+        'autoRefreshConsolidated': 'Auto-actualizar nota consolidada',
+        'autoRefreshConsolidatedDesc': 'Actualizar automáticamente la nota consolidada a intervalos regulares',
+        'consolidatedRefreshInterval': 'Intervalo de actualización consolidada',
+        'consolidatedRefreshIntervalDesc': 'Cada cuánto tiempo actualizar la nota consolidada (minutos)',
         '15min': '15 minutos',
         '30min': '30 minutos',
         '45min': '45 minutos',
@@ -334,6 +350,7 @@ export default class TodoistPlugin extends Plugin {
     settings: TodoistPluginSettings;
     refreshInterval: NodeJS.Timeout | null = null;
     syncInterval: NodeJS.Timeout | null = null;
+    consolidatedRefreshInterval: NodeJS.Timeout | null = null;
     
     private projectsCache: TodoistProject[] = [];
     private labelsCache: TodoistLabel[] = [];
@@ -386,6 +403,10 @@ export default class TodoistPlugin extends Plugin {
             this.startSync();
         }
 
+        if (this.settings.autoRefreshConsolidated) {
+            this.startConsolidatedRefresh();
+        }
+
         this.registerEvent(
             this.app.workspace.on('editor-change', (editor: Editor, view: MarkdownView | MarkdownFileInfo) => {
                 if (this.settings.enableSync && view instanceof MarkdownView) {
@@ -409,6 +430,7 @@ export default class TodoistPlugin extends Plugin {
     onunload() {
         this.stopAutoRefresh();
         this.stopSync();
+        this.stopConsolidatedRefresh();
         this.saveTaskMappings();
     }
 
@@ -496,6 +518,22 @@ export default class TodoistPlugin extends Plugin {
         if (this.syncInterval) {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
+        }
+    }
+
+    startConsolidatedRefresh() {
+        this.stopConsolidatedRefresh();
+        if (this.settings.autoRefreshConsolidated && this.settings.consolidatedRefreshInterval > 0) {
+            this.consolidatedRefreshInterval = setInterval(async () => {
+                await this.generateConsolidatedNote();
+            }, this.settings.consolidatedRefreshInterval * 1000);
+        }
+    }
+
+    stopConsolidatedRefresh() {
+        if (this.consolidatedRefreshInterval) {
+            clearInterval(this.consolidatedRefreshInterval);
+            this.consolidatedRefreshInterval = null;
         }
     }
 
@@ -706,6 +744,12 @@ export default class TodoistPlugin extends Plugin {
             this.startSync();
         } else {
             this.stopSync();
+        }
+
+        if (this.settings.autoRefreshConsolidated) {
+            this.startConsolidatedRefresh();
+        } else {
+            this.stopConsolidatedRefresh();
         }
 
         await this.testApiConnection();
@@ -1023,7 +1067,6 @@ export default class TodoistPlugin extends Plugin {
 
             // Generate note content with better formatting
             let noteContent = `# ${this.settings.language === 'es' ? 'Tareas Consolidadas de Todoist' : 'Consolidated Todoist Tasks'}\n\n`;
-            noteContent += `*${this.settings.language === 'es' ? 'Generado el' : 'Generated on'}: ${new Date().toLocaleString()}*\n\n`;
             
             if (filteredTasks.length === 0) {
                 noteContent += this.settings.language === 'es' ? 
@@ -1235,13 +1278,15 @@ class ApiTokenModal extends Modal {
 
 class DatePickerModal extends Modal {
     plugin: TodoistPlugin;
-    onDateSelect: (date: string, repeat?: string) => void;
+    onDateSelect: (date: string, repeat?: string, duration?: number) => void;
     selectedRepeat: string = '';
+    selectedDuration: number = 0;
 
-    constructor(app: App, plugin: TodoistPlugin, onDateSelect: (date: string, repeat?: string) => void) {
+    constructor(app: App, plugin: TodoistPlugin, onDateSelect: (date: string, repeat?: string, duration?: number) => void) {
         super(app);
         this.plugin = plugin;
         this.onDateSelect = onDateSelect;
+        this.selectedDuration = 0;
     }
 
     onOpen() {
@@ -1280,18 +1325,17 @@ class DatePickerModal extends Modal {
 
         contentEl.createEl('hr', { cls: 'date-separator' });
         
-        const repeatContainer = contentEl.createDiv({ cls: 'repeat-container' });
-        repeatContainer.createEl('label', { text: this.plugin.t('repeatTask') + ':' });
+        const optionsContainer = contentEl.createDiv({ cls: 'date-options-container' });
         
-        const repeatSelect = repeatContainer.createEl('select', { cls: 'repeat-select' });
+        const repeatSelect = optionsContainer.createEl('select', { cls: 'unified-select repeat-select' });
         
         const repeatOptions = [
-            { value: '', key: 'noRepeat' },
-            { value: 'every day', key: 'daily' },
-            { value: 'every week', key: 'weekly' },
-            { value: 'every weekday', key: 'weekdays' },
-            { value: 'every month', key: 'monthly' },
-            { value: 'every year', key: 'yearly' }
+            { value: '', key: 'noRepeat', icon: '❌' },
+            { value: 'every day', key: 'daily', icon: '📅' },
+            { value: 'every week', key: 'weekly', icon: '📆' },
+            { value: 'every weekday', key: 'weekdays', icon: '💼' },
+            { value: 'every month', key: 'monthly', icon: '📅' },
+            { value: 'every year', key: 'yearly', icon: '🎆' }
         ];
         
         repeatOptions.forEach(option => {
@@ -1301,6 +1345,35 @@ class DatePickerModal extends Modal {
         
         repeatSelect.addEventListener('change', (e) => {
             this.selectedRepeat = (e.target as HTMLSelectElement).value;
+        });
+        
+        // Selector de duración opcional en la misma fila
+        const durationSelect = optionsContainer.createEl('select', { cls: 'unified-select duration-select' });
+        
+        const durationOptions = [
+            { value: 0, key: 'noDuration', icon: '❌' },
+            { value: 15, key: '15min', icon: '⏱️' },
+            { value: 30, key: '30min', icon: '⏱️' },
+            { value: 45, key: '45min', icon: '⏱️' },
+            { value: 60, key: '1hour', icon: '⏰' },
+            { value: 90, key: '1hour30min', icon: '⏰' },
+            { value: 120, key: '2hours', icon: '⏰' },
+            { value: 180, key: '3hours', icon: '⏰' },
+            { value: 240, key: '4hours', icon: '⏰' },
+            { value: 300, key: '5hours', icon: '⏰' },
+            { value: 360, key: '6hours', icon: '⏰' },
+            { value: 420, key: '7hours', icon: '⏰' },
+            { value: 480, key: '8hours', icon: '⏰' }
+        ];
+        
+        durationOptions.forEach(option => {
+            const text = option.value === 0 ? this.plugin.t('noDuration') : this.plugin.t(option.key);
+            const optionElement = durationSelect.createEl('option', { text: text });
+            optionElement.value = option.value.toString();
+        });
+        
+        durationSelect.addEventListener('change', (e) => {
+            this.selectedDuration = parseInt((e.target as HTMLSelectElement).value);
         });
         
         contentEl.createEl('p', { 
@@ -1376,7 +1449,7 @@ class DatePickerModal extends Modal {
             }
 
             dayEl.addEventListener('click', () => {
-                this.onDateSelect(this.formatDate(currentDate), this.selectedRepeat);
+                this.onDateSelect(this.formatDate(currentDate), this.selectedRepeat, this.selectedDuration);
                 this.close();
             });
         }
@@ -1750,7 +1823,7 @@ class CreateTaskModal extends Modal {
     dueTimeButton: HTMLButtonElement;
     durationButton: HTMLButtonElement;
     reminderButton: HTMLButtonElement;
-    labelsButton: HTMLElement;
+    labelsButton: HTMLButtonElement;
     createButton: HTMLButtonElement;
 
     constructor(app: App, plugin: TodoistPlugin) {
@@ -1776,9 +1849,9 @@ class CreateTaskModal extends Modal {
 
         this.createTaskContentField(contentEl);
         this.createDescriptionField(contentEl);
-        this.createInlineSelectors(contentEl);
+        this.createUnifiedSelectors(contentEl);
         this.createDueDateFields(contentEl);
-        this.createReminderLabelsInsert(contentEl);
+        this.createInsertCheckbox(contentEl);
         this.createButtons(contentEl);
     }
 
@@ -1810,118 +1883,163 @@ class CreateTaskModal extends Modal {
         });
     }
 
-    createInlineSelectors(contentEl: HTMLElement) {
-        const inlineContainer = contentEl.createDiv({ cls: 'inline-selectors-container' });
+    createUnifiedSelectors(contentEl: HTMLElement) {
+        const unifiedContainer = contentEl.createDiv({ cls: 'unified-selectors-container' });
         
-        // Proyecto y Prioridad como botones
+        // Proyecto como dropdown unificado
         if (this.projects.length > 0) {
-            const projectField = inlineContainer.createDiv({ cls: 'inline-selector-field' });
-            const projectButton = projectField.createEl('button', { 
-                text: this.getSelectedProjectName() || this.plugin.t('project'),
-                cls: 'todoist-button selector-button project-button'
+            const projectSelect = unifiedContainer.createEl('select', { 
+                cls: 'unified-select project-select'
             });
             
-            projectButton.addEventListener('click', () => {
-                new ProjectPickerModal(this.app, this.plugin, this.projects, this.selectedProject, (selectedProject) => {
-                    this.selectedProject = selectedProject;
-                    projectButton.setText(this.getSelectedProjectName() || this.plugin.t('project'));
-                }).open();
+            const defaultOption = projectSelect.createEl('option', { text: this.plugin.t('project') });
+            defaultOption.value = '';
+            
+            this.projects.forEach(project => {
+                const option = projectSelect.createEl('option', { text: project.name });
+                option.value = project.id;
+                if (project.id === this.selectedProject) {
+                    option.selected = true;
+                }
+            });
+            
+            projectSelect.addEventListener('change', (e) => {
+                this.selectedProject = (e.target as HTMLSelectElement).value;
             });
         }
 
-        const priorityField = inlineContainer.createDiv({ cls: 'inline-selector-field' });
-        const priorityButton = priorityField.createEl('button', { 
-            text: this.getSelectedPriorityName(),
-            cls: 'todoist-button selector-button priority-button'
+        // Prioridad como dropdown unificado con banderas material
+        const prioritySelect = unifiedContainer.createEl('select', { 
+            cls: 'unified-select priority-select'
         });
         
-        priorityButton.addEventListener('click', () => {
-            new PriorityPickerModal(this.app, this.plugin, this.selectedPriority, (selectedPriority) => {
-                this.selectedPriority = selectedPriority;
-                priorityButton.setText(this.getSelectedPriorityName());
-            }).open();
+        const priorities = [
+            { value: 4, key: 'p1Urgent', color: '#d1453b' },
+            { value: 3, key: 'p2High', color: '#eb8909' },
+            { value: 2, key: 'p3Medium', color: '#246fe0' },
+            { value: 1, key: 'p4Low', color: '#666666' }
+        ];
+        
+        priorities.forEach(priority => {
+            const option = prioritySelect.createEl('option', { text: this.plugin.t(priority.key) });
+            option.value = priority.value.toString();
+            option.className = `priority-option-p${priority.value}`;
+            option.style.color = priority.color;
+            option.setAttribute('data-priority-color', priority.color);
+            if (priority.value === this.selectedPriority) {
+                option.selected = true;
+            }
         });
+        
+        prioritySelect.addEventListener('change', (e) => {
+            this.selectedPriority = parseInt((e.target as HTMLSelectElement).value);
+        });
+
+        // Recordatorio como dropdown unificado
+        const reminderSelect = unifiedContainer.createEl('select', {
+            cls: 'unified-select reminder-select'
+        });
+        
+        const reminderOptions = [
+            { value: '', key: 'reminder' },
+            { value: '5min', key: '5minBefore' },
+            { value: '15min', key: '15minBefore' },
+            { value: '30min', key: '30minBefore' },
+            { value: '1hour', key: '1hourBefore' },
+            { value: '2hours', key: '2hoursBefore' },
+            { value: '1day', key: '1dayBefore' }
+        ];
+        
+        reminderOptions.forEach(option => {
+            const optionEl = reminderSelect.createEl('option', { text: this.plugin.t(option.key) });
+            optionEl.value = option.value;
+            if (option.value === this.reminderTime) {
+                optionEl.selected = true;
+            }
+        });
+        
+        reminderSelect.addEventListener('change', (e) => {
+            this.reminderTime = (e.target as HTMLSelectElement).value;
+        });
+
+        // Etiquetas como botón desplegable
+        if (this.labels.length > 0) {
+            this.labelsButton = unifiedContainer.createEl('button', {
+                cls: 'unified-button labels-button'
+            });
+            
+            this.updateLabelsDisplay();
+            
+            this.labelsButton.addEventListener('click', () => {
+                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
+                    this.selectedLabels = selectedLabels;
+                    this.updateLabelsDisplay();
+                }).open();
+            });
+        }
     }
 
     createDueDateFields(contentEl: HTMLElement) {
-        // Contenedor para los campos de fecha
-        const datesContainer = contentEl.createDiv({ cls: 'date-fields-container' });
+        const dateFieldsContainer = contentEl.createDiv({ cls: 'date-fields-container' });
         
-        // Campo de Fecha
-        const dateField = datesContainer.createDiv({ cls: 'date-field' });
-        this.dueDateButton = dateField.createEl('button', { 
+        // Campo Fecha (sin label)
+        this.dueDateButton = dateFieldsContainer.createEl('button', { 
             text: this.dueDate || this.plugin.t('selectDate'),
-            cls: 'todoist-button selector-button date-button'
+            cls: 'unified-button date-button'
         });
         this.dueDateButton.addEventListener('click', () => {
-            new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
+            new DatePickerModal(this.app, this.plugin, (selectedDate, repeat, duration) => {
                 this.dueDate = selectedDate;
                 this.repeatOption = repeat || '';
+                this.taskDuration = duration || 0;
                 this.dueDateButton.setText(selectedDate);
             }).open();
         });
 
-        // Botón de Repetir junto al de Fecha
-        const repeatButton = dateField.createEl('button', { 
-            text: this.repeatOption || this.plugin.t('repeat'),
-            cls: 'todoist-button selector-button repeat-button'
-        });
-        repeatButton.addEventListener('click', () => {
-            new RepeatPickerModal(this.app, this.plugin, this.repeatOption, (selectedRepeat) => {
-                this.repeatOption = selectedRepeat;
-                repeatButton.setText(selectedRepeat || this.plugin.t('repeat'));
-            }).open();
-        });
-
-        // Campo de Fecha Límite (Due Date)
-        const dueDateField2 = datesContainer.createDiv({ cls: 'date-field' });
-        this.dueDateLimitButton = dueDateField2.createEl('button', { 
-            text: this.dueDate || this.plugin.t('deadline'),
-            cls: 'todoist-button selector-button due-date-button'
+        // Campo Fecha Límite (sin label) - SIEMPRE PRESENTE
+        this.dueDateLimitButton = dateFieldsContainer.createEl('button', { 
+            text: this.plugin.t('deadline'),
+            cls: 'unified-button due-date-button'
         });
         this.dueDateLimitButton.addEventListener('click', () => {
-            new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
+            new DatePickerModal(this.app, this.plugin, (selectedDate, repeat, duration) => {
                 this.dueDate = selectedDate;
                 this.repeatOption = repeat || '';
+                this.taskDuration = duration || 0;
                 this.dueDateLimitButton.setText(selectedDate);
             }).open();
         });
 
-        // Contenedor para tiempo y duración
-        const timeDurationContainer = contentEl.createDiv({ cls: 'time-duration-container' });
-        
-        // Campo de Tiempo (solo si está habilitado)
+        // Campo de Tiempo como dropdown (solo si está habilitado)
         if (this.plugin.settings.enableTimeSelection) {
-            const timeField = timeDurationContainer.createDiv({ cls: 'date-field' });
-            this.dueTimeButton = timeField.createEl('button', { 
-                text: this.dueTime || this.plugin.t('selectTime'),
-                cls: 'todoist-button selector-button time-button'
+            const timeContainer = contentEl.createDiv({ cls: 'field-container' });
+            
+            const timeSelect = timeContainer.createEl('select', { 
+                cls: 'unified-select time-select'
             });
-            this.dueTimeButton.addEventListener('click', () => {
-                new TimePickerModal(this.app, this.plugin, (selectedTime) => {
-                    this.dueTime = selectedTime;
-                    if (this.dueTimeButton) {
-                        this.dueTimeButton.setText(selectedTime);
+            
+            // Generar opciones de tiempo cada 15 minutos
+            const defaultTimeOption = timeSelect.createEl('option', { text: this.plugin.t('selectTime') });
+            defaultTimeOption.value = '';
+            
+            for (let hour = 0; hour < 24; hour++) {
+                for (let minute = 0; minute < 60; minute += 15) {
+                    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                    const option = timeSelect.createEl('option', { text: timeStr });
+                    option.value = timeStr;
+                    if (timeStr === this.dueTime) {
+                        option.selected = true;
                     }
-                }).open();
+                }
+            }
+            
+            timeSelect.addEventListener('change', (e) => {
+                this.dueTime = (e.target as HTMLSelectElement).value;
             });
         } else {
             // Reset time if time selection is disabled
             this.dueTime = '';
         }
-        
-        // Campo de Duración
-        const durationField = timeDurationContainer.createDiv({ cls: 'date-field' });
-        this.durationButton = durationField.createEl('button', { 
-            text: this.taskDuration > 0 ? this.formatDuration(this.taskDuration) : this.plugin.t('selectDuration'),
-            cls: 'todoist-button selector-button duration-button'
-        });
-        this.durationButton.addEventListener('click', () => {
-            new DurationPickerModal(this.app, this.plugin, (selectedDuration) => {
-                this.taskDuration = selectedDuration;
-                this.durationButton.setText(this.formatDuration(selectedDuration));
-            }).open();
-        });
     }
 
     formatDuration(minutes: number): string {
@@ -1936,46 +2054,11 @@ class CreateTaskModal extends Modal {
         }
     }
 
-    createReminderLabelsInsert(contentEl: HTMLElement) {
-        const container = contentEl.createDiv({ cls: 'reminder-labels-insert-container' });
-        
-        // Campo de Recordatorio (sin label)
-        const reminderField = container.createDiv({ cls: 'reminder-field' });
-        
-        this.reminderButton = reminderField.createEl('button', {
-            text: this.reminderTime || this.plugin.t('reminder'),
-            cls: 'todoist-button selector-button reminder-button'
-        });
-        
-        this.reminderButton.addEventListener('click', () => {
-            new ReminderPickerModal(this.app, this.plugin, (selectedReminder) => {
-                this.reminderTime = selectedReminder;
-                this.reminderButton.setText(selectedReminder || this.plugin.t('reminder'));
-            }).open();
-        });
-
-        // Campo de Etiquetas (sin label)
-        if (this.labels.length > 0) {
-            const labelsField = container.createDiv({ cls: 'labels-field' });
-            
-            this.labelsButton = labelsField.createEl('button', {
-                cls: 'todoist-button selector-button labels-button'
-            });
-            
-            this.updateLabelsDisplay();
-            
-            this.labelsButton.addEventListener('click', () => {
-                new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
-                    this.selectedLabels = selectedLabels;
-                    this.updateLabelsDisplay();
-                }).open();
-            });
-        }
-
+    createInsertCheckbox(contentEl: HTMLElement) {
         // Campo de Insertar en Nota (sin label)
-        const insertField = container.createDiv({ cls: 'insert-field' });
+        const insertContainer = contentEl.createDiv({ cls: 'insert-field-container' });
         
-        const checkboxContainer = insertField.createDiv({ cls: 'inline-checkbox-container' });
+        const checkboxContainer = insertContainer.createDiv({ cls: 'inline-checkbox-container' });
         
         const insertCheckbox = checkboxContainer.createEl('input', { 
             type: 'checkbox',
@@ -1987,7 +2070,7 @@ class CreateTaskModal extends Modal {
             this.plugin.saveSettings();
         });
         
-        const insertLabel = checkboxContainer.createEl('label', { 
+        checkboxContainer.createEl('label', { 
             text: this.plugin.t('insertInNote'),
             cls: 'checkbox-label',
             attr: { for: 'insert-task-checkbox' }
@@ -2357,6 +2440,30 @@ class TodoistSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.consolidatedNotePath)
                 .onChange(async (value) => {
                     this.plugin.settings.consolidatedNotePath = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName(this.plugin.t('autoRefreshConsolidated'))
+            .setDesc(this.plugin.t('autoRefreshConsolidatedDesc'))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.autoRefreshConsolidated)
+                .onChange(async (value) => {
+                    this.plugin.settings.autoRefreshConsolidated = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName(this.plugin.t('consolidatedRefreshInterval'))
+            .setDesc(this.plugin.t('consolidatedRefreshIntervalDesc'))
+            .addDropdown(dropdown => dropdown
+                .addOption('60', '1 ' + (this.plugin.settings.language === 'es' ? 'minuto' : 'minute'))
+                .addOption('300', '5 ' + (this.plugin.settings.language === 'es' ? 'minutos' : 'minutes'))
+                .addOption('1800', '30 ' + (this.plugin.settings.language === 'es' ? 'minutos' : 'minutes'))
+                .addOption('3600', '60 ' + (this.plugin.settings.language === 'es' ? 'minutos' : 'minutes'))
+                .setValue(this.plugin.settings.consolidatedRefreshInterval.toString())
+                .onChange(async (value) => {
+                    this.plugin.settings.consolidatedRefreshInterval = parseInt(value);
                     await this.plugin.saveSettings();
                 }));
 

@@ -1,23 +1,23 @@
-# Obsidian Todoist Creator Plugin - Versión Completa
+# Todoist Task Creator - Plugin Completo
 
-Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en Todoist directamente desde tus notas con todas las funcionalidades avanzadas de Todoist, tareas repetitivas, nota consolidada y un diseño optimizado.
+Un plugin avanzado y multiidioma que te permite crear tareas en Todoist directamente desde tus notas con todas las funcionalidades avanzadas de Todoist, tareas repetitivas, nota consolidada y un diseño optimizado.
 
-![Plugin Version](https://img.shields.io/badge/version-2.2.1-blue)
-![Obsidian](https://img.shields.io/badge/obsidian-compatible-purple)
+![Plugin Version](https://img.shields.io/badge/version-2.4.0-blue)
+![Compatible](https://img.shields.io/badge/compatible-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Author](https://img.shields.io/badge/author-Jonathan%20Hernandez-orange)
 
 ## 🚀 Características Principales
 
-### ✨ Diseño Optimizado v2.1
+### ✨ Diseño Material Design v2.4
 
-- **🎨 Interfaz compacta**: Diseño similar a Todoist con layout optimizado
-- **📱 Completamente responsive**: Se adapta perfectamente a móvil y desktop
+- **🎨 Material Design unificado**: Arquitectura CSS completamente reestructurada con iconos planos
+- **📱 Compatibilidad móvil perfecta**: Interfaz optimizada para todos los dispositivos
 - **🔗 Indicador de conexión API**: Estado visual verde/rojo en configuraciones
-- **⚡ Campos inline**: Proyecto + Prioridad en la misma línea
-- **🏷️ Etiquetas visuales**: Lista de tags con colores preservados de Todoist
-- **📅 Dos campos de fecha**: "Fecha" y "Fecha Límite" separados
-- **⏰ Selector optimizado**: Tiempo cada 15 minutos en interfaz compacta
+- **🎯 Elementos unificados**: Proyecto, Prioridad, Recordatorio y Etiquetas con diseño consistente
+- **🏷️ Iconos CSS vectoriales**: Iconos Material Design con máscara CSS en color único
+- **🚩 Prioridades con banderas**: Iconos de bandera coloridos para P1-P4
+- **⏰ Diseño responsivo**: Layout completamente optimizado y consistente
 
 ### 🎯 Funcionalidades Avanzadas
 
@@ -39,14 +39,14 @@ Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en To
 ### Instalación Manual
 
 1. **Descarga los archivos** del plugin
-2. **Crea la carpeta** `obsidian-todoist-creator` en `VaultFolder/.obsidian/plugins/`
+2. **Crea la carpeta** `todoist-task-creator` en `VaultFolder/.obsidian/plugins/`
 3. **Copia todos los archivos** en esa carpeta
 4. **Instala dependencias y construye**:
    ```bash
    npm install
    npm run build
    ```
-5. **Recarga Obsidian**
+5. **Recarga la aplicación**
 6. **Activa el plugin** en Configuración > Plugins de comunidad
 
 ### ⚙️ Configuración Inicial
@@ -82,50 +82,46 @@ Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en To
 
 ### 🎨 Interfaz Optimizada
 
-#### **Layout Ultra-Compacto v2.2.1:**
+#### **Layout Material Design v2.4.0:**
 ```
 ┌─────────────────────────────────────┐
 │ Nombre de la tarea                  │
 │ Descripción                         │
-│ [Proyecto]      │ [Prioridad]       │
-│ [Fecha] [Repetir] │ [Fecha Límite]  │
-│ [Hora]          │ [Duración]        │
-│ [Recordatorio] │ [Etiquetas] │☑Insert│
+│ [📁] Proyecto    │ [🚩] Prioridad   │
+│ [📅] Fecha       │ [⏰] Duración     │
+│ [🔔] Recordatorio │ [🏷️] Etiquetas   │
+│ ☑ Insertar en nota                 │
 │ [Cancelar]        [Crear Tarea]     │
 └─────────────────────────────────────┘
 ```
 
-**🎯 Mejoras de la interfaz:**
-- **Sin etiquetas**: Botones auto-descriptivos sin labels adicionales
-- **Más espacio**: Diseño vertical optimizado
-- **Identificación visual**: Cada botón tiene color específico
-- **Función Repetir**: Botón independiente junto a Fecha
+**🎯 Mejoras Material Design v2.4.0:**
+- **Iconos CSS unificados**: Material Design con máscaras CSS en color único
+- **Diseño completamente consistente**: Todos los elementos con comportamiento idéntico
+- **Sin movimiento de iconos**: Posicionamiento absoluto para estabilidad visual
+- **Prioridades con banderas coloridas**: P1-P4 con iconos de bandera específicos
 
 #### **Campos del Formulario:**
 
 **📋 Obligatorios:**
 - **Contenido**: Descripción principal de la tarea
 
-**📄 Opcionales (interfaz de botones):**
+**📄 Opcionales (Material Design):**
 - **Descripción**: Información adicional (campo compacto)
-- **[Proyecto]**: Botón azul - despliega lista de proyectos
-- **[Prioridad]**: Botón naranja - P1 a P4 con colores
-- **[Fecha]**: Botón verde - calendario y opciones rápidas
-- **[Repetir]**: Botón morado - opciones de recurrencia
-- **[Fecha Límite]**: Botón rojo - deadline específico
-- **[Hora]**: Botón gris - selector cada 15 minutos (si habilitado)
-- **[Duración]**: Botón morado - 15min a 8 horas
-- **[Recordatorio]**: Botón verde - alertas configurables
-- **[Etiquetas]**: Botón gris - selección múltiple
-- **☑ Insertar en nota**: Checkbox compacto sin label
+- **[📁] Proyecto**: Botón unificado con modal - lista de proyectos
+- **[🚩] Prioridad**: Botón con banderas coloridas - P1 a P4 con colores específicos
+- **[📅] Fecha**: Calendario modal con repetición integrada
+- **[⏰] Duración**: Botón unificado - 15min a 8 horas (opcional)
+- **[🔔] Recordatorio**: Botón unificado - alertas predefinidas
+- **[🏷️] Etiquetas**: Botón unificado con modal - selección múltiple
+- **☑ Insertar en nota**: Checkbox compacto
 
-**🎨 Identificación por colores:**
-- 🔵 **Azul**: Proyecto
-- 🟠 **Naranja**: Prioridad  
-- 🟢 **Verde**: Fecha y Recordatorio
-- 🟣 **Morado**: Repetir y Duración
-- 🔴 **Rojo**: Fecha Límite
-- ⚫ **Gris**: Hora y Etiquetas
+**🎨 Iconos Material Design CSS:**
+- 📁 **Proyecto**: Icono de carpeta unificado
+- 🚩 **Prioridad**: Banderas coloridas (P1-rojo, P2-naranja, P3-azul, P4-gris)
+- 🔔 **Recordatorio**: Icono de campana unificado
+- 🏷️ **Etiquetas**: Icono de etiqueta unificado
+- ⏰ **Duración**: Icono de reloj unificado
 
 ### 📅 Selector de Fecha Mejorado
 
@@ -155,10 +151,10 @@ Configura tiempo estimado de completación:
 - **1-2 horas**: Tareas estándar  
 - **3-8 horas**: Proyectos extensos
 
-### 🔄 Función de Repetir **NUEVO** v2.2.1
+### 🔄 Función de Repetir **INTEGRADA** v2.3.0
 
-**🔘 Botón independiente de repetición:**
-Ahora junto al botón "Fecha" encontrarás un botón "Repetir" separado que te permite configurar tareas recurrentes de forma más intuitiva.
+**📌 Repetir integrado en Fecha:**
+La función de repetir ahora está integrada directamente en el modal de selección de fecha, proporcionando una experiencia más fluida y compacta.
 
 **🎯 Opciones disponibles:**
 - **Cada día**: Repetición diaria
@@ -167,11 +163,11 @@ Ahora junto al botón "Fecha" encontrarás un botón "Repetir" separado que te p
 - **Cada mes**: Mismo día cada mes
 - **Cada año**: Fechas especiales anuales
 
-**💡 Ventajas del nuevo diseño:**
-- **🔘 Acceso directo**: Un clic en "Repetir" abre las opciones
-- **👁️ Visibilidad clara**: Estado de repetición siempre visible
-- **⚡ Configuración rápida**: Modal específico para repeticiones
-- **🎨 Identificación visual**: Botón morado distintivo
+**💡 Ventajas del diseño integrado:**
+- **📌 Flujo unificado**: Fecha y repetición en un solo paso
+- **⚡ Más rápido**: Menos clics para configurar tareas recurrentes
+- **📱 Optimizado móvil**: Menos modales, mejor experiencia táctil
+- **🎨 Interfaz limpia**: Sin botones adicionales
 
 **🏷️ Funcionalidad automática:**
 - **#repeattodo**: Etiqueta automática en tareas repetitivas
@@ -340,7 +336,7 @@ Personaliza el formato con:
 ## 📁 Estructura del Plugin
 
 ```
-obsidian-todoist-creator/
+todoist-task-creator/
 ├── main.ts              # Código principal optimizado
 ├── manifest.json        # Metadatos del plugin
 ├── package.json         # Dependencias
@@ -352,6 +348,28 @@ obsidian-todoist-creator/
 ```
 
 ## 🏆 Changelog
+
+### v2.4.0 - Arquitectura Material Design Unificada 🎨
+- 🎨 **NUEVO**: Arquitectura CSS completamente reestructurada con Material Design
+- 🎯 **NUEVO**: Sistema de iconos unificado con máscaras CSS en color único
+- 🚩 **NUEVO**: Prioridades con iconos de bandera coloridos (P1-P4)
+- 📱 **MEJORADO**: Compatibilidad móvil completamente perfeccionada
+- 🔧 **CORREGIDO**: Movimiento de iconos eliminado con posicionamiento absoluto
+- 🎨 **MEJORADO**: Diseño completamente consistente en todos los elementos
+- ⚡ **OPTIMIZADO**: Interfaz más estable y profesional
+- 🏷️ **MEJORADO**: Etiquetas ahora funcionan correctamente con modal en lugar de dropdown
+- 📦 **ACTUALIZADO**: Versión 2.4.0 con descripción actualizada del Material Design
+
+### v2.3.0 - Interfaz Dropdown y Optimización Móvil 📱
+- 📱 **NUEVO**: Interfaz completamente rediseñada con dropdowns nativos
+- 📌 **MEJORADO**: Función Repetir integrada en el selector de Fecha
+- 📦 **OPTIMIZADO**: Interfaz ultra-compacta - dropdowns en lugar de botones
+- 📱 **MEJORADO**: Diseño responsive perfecto para dispositivos móviles
+- 🎨 **MEJORADO**: Identificación visual con colores de borde específicos
+- ⚡ **OPTIMIZADO**: Selección más rápida con dropdowns nativos
+- 🔘 **SIMPLIFICADO**: Menos modales, experiencia más fluida
+- 📏 **CORREGIDO**: Cumple con todos los estándares de plugins
+- 👤 **ACTUALIZADO**: ID del plugin sin 'obsidian', nombre sin redundancias
 
 ### v2.2.1 - Interfaz Compacta y Función de Repetir 🎨
 - 🔄 **NUEVO**: Botón "Repetir" independiente junto al botón de fecha con opciones: Cada día, Cada semana, Cada día laboral, Cada mes, Cada año
@@ -426,33 +444,34 @@ Si encuentras problemas o tienes sugerencias:
 
 - 📋 **Revisa la sección de solución de problemas**
 - 🔗 **Verifica que el indicador de API esté verde**
-- 📦 **Confirma que tienes la última versión v2.2.1**
+- 📦 **Confirma que tienes la última versión v2.4.0**
 - 🐛 **Abre un issue** con detalles del problema
 
-## 🌟 Características Destacadas v2.2
+## 🌟 Características Destacadas v2.4
 
 ### 🎯 Experiencia de Usuario Superior
 - **⚡ Más rápido**: Cache inteligente y optimizaciones
-- **🎨 Más bonito**: Diseño compacto estilo Todoist real
-- **📱 Más accesible**: Responsive design optimizado
+- **🎨 Material Design**: Arquitectura CSS unificada con iconos vectoriales
+- **📱 Compatibilidad perfecta**: Diseño responsive completamente optimizado
 - **🔧 Más confiable**: Indicadores de estado y mejor manejo de errores
 - **📋 Más organizado**: Vista consolidada de todas las tareas
+- **🎯 Interfaz consistente**: Todos los elementos con comportamiento idéntico
 
 ### 🚀 Productividad Maximizada
 - **⏰ Fechas rápidas**: "Hoy" o "Mañana" con un clic
 - **⏱️ Duración precisa**: Planificación mejorada
 - **🔄 Repetición automática**: Hábitos y rutinas con #repeattodo
-- **🎨 Visual mejorado**: Identificación instantánea de prioridades
-- **🏷️ Etiquetas claras**: Lista visual con colores preservados
+- **🚩 Prioridades visuales**: Banderas coloridas para identificación instantánea
+- **🏷️ Etiquetas funcionales**: Modal dedicado con selección múltiple
 - **📊 Vista unificada**: Consolidación inteligente por proyecto y etiquetas
 - **⚙️ Control granular**: Tiempo opcional, filtros personalizables
 
 ---
 
-**¡Plugin completamente optimizado con interfaz compacta y función Repetir independiente! 🚀✨**
+**¡Plugin con Material Design unificado y compatibilidad móvil perfecta! 🚀📱**
 
-> *Desarrollado con ❤️ por Jonathan Hernandez para la comunidad de Obsidian*
+> *Desarrollado con ❤️ por Jonathan Hernandez*
 > 
-> **Repositorio**: [https://github.com/jonathanhher/obsidian-todoist-creator](https://github.com/jonathanhher/obsidian-todoist-creator)
+> **Repositorio**: [https://github.com/jonathanhher/todoist-task-creator](https://github.com/jonathanhher/todoist-task-creator)
 > 
-> **Versión actual**: 2.2.1 - Interfaz compacta con función Repetir independiente
+> **Versión actual**: 2.4.0 - Arquitectura Material Design unificada con iconos CSS vectoriales

@@ -49,7 +49,9 @@ var DEFAULT_SETTINGS = {
   consolidatedNoteFilters: {
     projects: [],
     labels: []
-  }
+  },
+  autoRefreshConsolidated: true,
+  consolidatedRefreshInterval: 60
 };
 var translations = {
   en: {
@@ -66,6 +68,8 @@ var translations = {
     "duration": "Duration (optional)",
     "reminder": "Reminder",
     "repeat": "Repeat",
+    "optional": "Optional",
+    "noDuration": "No duration",
     "labels": "Labels",
     "insertInNote": "Insert in note",
     "cancel": "Cancel",
@@ -152,6 +156,10 @@ var translations = {
     "enableTimeSelectionDesc": "Allow time selection for tasks (disabled by default)",
     "consolidatedNoteGenerated": "Consolidated note generated",
     "consolidatedFilters": "Consolidated note filters",
+    "autoRefreshConsolidated": "Auto-refresh consolidated note",
+    "autoRefreshConsolidatedDesc": "Automatically refresh the consolidated note at regular intervals",
+    "consolidatedRefreshInterval": "Consolidated refresh interval",
+    "consolidatedRefreshIntervalDesc": "How often to refresh the consolidated note (minutes)",
     "15min": "15 minutes",
     "30min": "30 minutes",
     "45min": "45 minutes",
@@ -180,6 +188,8 @@ var translations = {
     "duration": "Duraci\xF3n (opcional)",
     "reminder": "Recordatorio",
     "repeat": "Repetir",
+    "opcional": "Opcional",
+    "noDuration": "Sin duraci\xF3n",
     "labels": "Etiquetas",
     "insertInNote": "Insertar en nota",
     "cancel": "Cancelar",
@@ -266,6 +276,10 @@ var translations = {
     "enableTimeSelectionDesc": "Permitir selecci\xF3n de tiempo para tareas (deshabilitado por defecto)",
     "consolidatedNoteGenerated": "Nota consolidada generada",
     "consolidatedFilters": "Filtros de nota consolidada",
+    "autoRefreshConsolidated": "Auto-actualizar nota consolidada",
+    "autoRefreshConsolidatedDesc": "Actualizar autom\xE1ticamente la nota consolidada a intervalos regulares",
+    "consolidatedRefreshInterval": "Intervalo de actualizaci\xF3n consolidada",
+    "consolidatedRefreshIntervalDesc": "Cada cu\xE1nto tiempo actualizar la nota consolidada (minutos)",
     "15min": "15 minutos",
     "30min": "30 minutos",
     "45min": "45 minutos",
@@ -287,6 +301,7 @@ var TodoistPlugin = class extends import_obsidian.Plugin {
     __publicField(this, "settings");
     __publicField(this, "refreshInterval", null);
     __publicField(this, "syncInterval", null);
+    __publicField(this, "consolidatedRefreshInterval", null);
     __publicField(this, "projectsCache", []);
     __publicField(this, "labelsCache", []);
     __publicField(this, "lastFetch", 0);
@@ -331,6 +346,9 @@ var TodoistPlugin = class extends import_obsidian.Plugin {
     if (this.settings.enableSync) {
       this.startSync();
     }
+    if (this.settings.autoRefreshConsolidated) {
+      this.startConsolidatedRefresh();
+    }
     this.registerEvent(
       this.app.workspace.on("editor-change", (editor, view) => {
         if (this.settings.enableSync && view instanceof import_obsidian.MarkdownView) {
@@ -351,6 +369,7 @@ var TodoistPlugin = class extends import_obsidian.Plugin {
   onunload() {
     this.stopAutoRefresh();
     this.stopSync();
+    this.stopConsolidatedRefresh();
     this.saveTaskMappings();
   }
   t(key) {
@@ -428,6 +447,20 @@ var TodoistPlugin = class extends import_obsidian.Plugin {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
+    }
+  }
+  startConsolidatedRefresh() {
+    this.stopConsolidatedRefresh();
+    if (this.settings.autoRefreshConsolidated && this.settings.consolidatedRefreshInterval > 0) {
+      this.consolidatedRefreshInterval = setInterval(async () => {
+        await this.generateConsolidatedNote();
+      }, this.settings.consolidatedRefreshInterval * 1e3);
+    }
+  }
+  stopConsolidatedRefresh() {
+    if (this.consolidatedRefreshInterval) {
+      clearInterval(this.consolidatedRefreshInterval);
+      this.consolidatedRefreshInterval = null;
     }
   }
   async syncTasks() {
@@ -610,6 +643,11 @@ var TodoistPlugin = class extends import_obsidian.Plugin {
       this.startSync();
     } else {
       this.stopSync();
+    }
+    if (this.settings.autoRefreshConsolidated) {
+      this.startConsolidatedRefresh();
+    } else {
+      this.stopConsolidatedRefresh();
     }
     await this.testApiConnection();
   }
@@ -863,9 +901,6 @@ var TodoistPlugin = class extends import_obsidian.Plugin {
       let noteContent = `# ${this.settings.language === "es" ? "Tareas Consolidadas de Todoist" : "Consolidated Todoist Tasks"}
 
 `;
-      noteContent += `*${this.settings.language === "es" ? "Generado el" : "Generated on"}: ${(/* @__PURE__ */ new Date()).toLocaleString()}*
-
-`;
       if (filteredTasks.length === 0) {
         noteContent += this.settings.language === "es" ? "No se encontraron tareas que coincidan con los filtros especificados.\n" : "No tasks found matching the specified filters.\n";
       } else {
@@ -1037,8 +1072,10 @@ var DatePickerModal = class extends import_obsidian.Modal {
     __publicField(this, "plugin");
     __publicField(this, "onDateSelect");
     __publicField(this, "selectedRepeat", "");
+    __publicField(this, "selectedDuration", 0);
     this.plugin = plugin;
     this.onDateSelect = onDateSelect;
+    this.selectedDuration = 0;
   }
   onOpen() {
     const { contentEl } = this;
@@ -1068,16 +1105,15 @@ var DatePickerModal = class extends import_obsidian.Modal {
       });
     });
     contentEl.createEl("hr", { cls: "date-separator" });
-    const repeatContainer = contentEl.createDiv({ cls: "repeat-container" });
-    repeatContainer.createEl("label", { text: this.plugin.t("repeatTask") + ":" });
-    const repeatSelect = repeatContainer.createEl("select", { cls: "repeat-select" });
+    const optionsContainer = contentEl.createDiv({ cls: "date-options-container" });
+    const repeatSelect = optionsContainer.createEl("select", { cls: "unified-select repeat-select" });
     const repeatOptions = [
-      { value: "", key: "noRepeat" },
-      { value: "every day", key: "daily" },
-      { value: "every week", key: "weekly" },
-      { value: "every weekday", key: "weekdays" },
-      { value: "every month", key: "monthly" },
-      { value: "every year", key: "yearly" }
+      { value: "", key: "noRepeat", icon: "\u274C" },
+      { value: "every day", key: "daily", icon: "\u{1F4C5}" },
+      { value: "every week", key: "weekly", icon: "\u{1F4C6}" },
+      { value: "every weekday", key: "weekdays", icon: "\u{1F4BC}" },
+      { value: "every month", key: "monthly", icon: "\u{1F4C5}" },
+      { value: "every year", key: "yearly", icon: "\u{1F386}" }
     ];
     repeatOptions.forEach((option) => {
       const optionElement = repeatSelect.createEl("option", { text: this.plugin.t(option.key) });
@@ -1085,6 +1121,30 @@ var DatePickerModal = class extends import_obsidian.Modal {
     });
     repeatSelect.addEventListener("change", (e) => {
       this.selectedRepeat = e.target.value;
+    });
+    const durationSelect = optionsContainer.createEl("select", { cls: "unified-select duration-select" });
+    const durationOptions = [
+      { value: 0, key: "noDuration", icon: "\u274C" },
+      { value: 15, key: "15min", icon: "\u23F1\uFE0F" },
+      { value: 30, key: "30min", icon: "\u23F1\uFE0F" },
+      { value: 45, key: "45min", icon: "\u23F1\uFE0F" },
+      { value: 60, key: "1hour", icon: "\u23F0" },
+      { value: 90, key: "1hour30min", icon: "\u23F0" },
+      { value: 120, key: "2hours", icon: "\u23F0" },
+      { value: 180, key: "3hours", icon: "\u23F0" },
+      { value: 240, key: "4hours", icon: "\u23F0" },
+      { value: 300, key: "5hours", icon: "\u23F0" },
+      { value: 360, key: "6hours", icon: "\u23F0" },
+      { value: 420, key: "7hours", icon: "\u23F0" },
+      { value: 480, key: "8hours", icon: "\u23F0" }
+    ];
+    durationOptions.forEach((option) => {
+      const text = option.value === 0 ? this.plugin.t("noDuration") : this.plugin.t(option.key);
+      const optionElement = durationSelect.createEl("option", { text });
+      optionElement.value = option.value.toString();
+    });
+    durationSelect.addEventListener("change", (e) => {
+      this.selectedDuration = parseInt(e.target.value);
     });
     contentEl.createEl("p", {
       text: this.plugin.t("customDate"),
@@ -1142,288 +1202,13 @@ var DatePickerModal = class extends import_obsidian.Modal {
         dayEl.addClass("calendar-day-past");
       }
       dayEl.addEventListener("click", () => {
-        this.onDateSelect(this.formatDate(currentDate), this.selectedRepeat);
+        this.onDateSelect(this.formatDate(currentDate), this.selectedRepeat, this.selectedDuration);
         this.close();
       });
     }
     const cancelButton = calendarContainer.createEl("button", {
       text: this.plugin.t("cancel"),
       cls: "calendar-cancel-button"
-    });
-    cancelButton.addEventListener("click", () => this.close());
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-var TimePickerModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, onTimeSelect) {
-    super(app);
-    __publicField(this, "plugin");
-    __publicField(this, "onTimeSelect");
-    this.plugin = plugin;
-    this.onTimeSelect = onTimeSelect;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: this.plugin.t("selectTime"), cls: "modal-title" });
-    const timeContainer = contentEl.createDiv({ cls: "time-container" });
-    const currentTime = /* @__PURE__ */ new Date();
-    const currentHour = currentTime.getHours();
-    const currentMinute = Math.floor(currentTime.getMinutes() / 15) * 15;
-    for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 15) {
-        const timeString = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-        const displayTime = new Date(0, 0, 0, hour, minute).toLocaleTimeString(
-          this.plugin.settings.language === "es" ? "es" : "en",
-          { hour: "2-digit", minute: "2-digit", hour12: false }
-        );
-        const timeEl = timeContainer.createEl("div", { text: displayTime, cls: "time-option" });
-        if (hour === currentHour && minute === currentMinute) {
-          timeEl.addClass("time-option-current");
-          setTimeout(() => timeEl.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
-        }
-        timeEl.addEventListener("click", () => {
-          this.onTimeSelect(timeString);
-          this.close();
-        });
-      }
-    }
-    const cancelButton = contentEl.createEl("button", {
-      text: this.plugin.t("cancel"),
-      cls: "time-cancel-button"
-    });
-    cancelButton.addEventListener("click", () => this.close());
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-var ReminderPickerModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, onReminderSelect) {
-    super(app);
-    __publicField(this, "plugin");
-    __publicField(this, "onReminderSelect");
-    this.plugin = plugin;
-    this.onReminderSelect = onReminderSelect;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: this.plugin.t("reminder"), cls: "modal-title" });
-    const reminderContainer = contentEl.createDiv({ cls: "reminder-container" });
-    const reminderOptions = [
-      { value: "", key: "noReminder" },
-      { value: "5 minutes before", key: "5minBefore" },
-      { value: "15 minutes before", key: "15minBefore" },
-      { value: "30 minutes before", key: "30minBefore" },
-      { value: "1 hour before", key: "1hourBefore" },
-      { value: "2 hours before", key: "2hoursBefore" },
-      { value: "1 day before", key: "1dayBefore" }
-    ];
-    reminderOptions.forEach((option) => {
-      const reminderEl = reminderContainer.createEl("div", {
-        text: this.plugin.t(option.key),
-        cls: "reminder-option"
-      });
-      reminderEl.addEventListener("click", () => {
-        this.onReminderSelect(option.value);
-        this.close();
-      });
-    });
-    const cancelButton = contentEl.createEl("button", {
-      text: this.plugin.t("cancel"),
-      cls: "reminder-cancel-button"
-    });
-    cancelButton.addEventListener("click", () => this.close());
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-var RepeatPickerModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, currentRepeat, onRepeatSelect) {
-    super(app);
-    __publicField(this, "plugin");
-    __publicField(this, "onRepeatSelect");
-    __publicField(this, "currentRepeat");
-    this.plugin = plugin;
-    this.currentRepeat = currentRepeat;
-    this.onRepeatSelect = onRepeatSelect;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: this.plugin.t("repeat"), cls: "modal-title" });
-    const repeatContainer = contentEl.createDiv({ cls: "repeat-options-container" });
-    const repeatOptions = [
-      { value: "", key: "noRepeat" },
-      { value: "every day", key: "daily" },
-      { value: "every week", key: "weekly" },
-      { value: "every weekday", key: "weekdays" },
-      { value: "every month", key: "monthly" },
-      { value: "every year", key: "yearly" }
-    ];
-    repeatOptions.forEach((option) => {
-      const optionEl = repeatContainer.createEl("div", {
-        text: this.plugin.t(option.key),
-        cls: "repeat-option"
-      });
-      if (option.value === this.currentRepeat) {
-        optionEl.addClass("selected");
-      }
-      optionEl.addEventListener("click", () => {
-        this.onRepeatSelect(option.value);
-        this.close();
-      });
-    });
-    const cancelButton = contentEl.createEl("button", {
-      text: this.plugin.t("cancel"),
-      cls: "repeat-cancel-button"
-    });
-    cancelButton.addEventListener("click", () => this.close());
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-var ProjectPickerModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, projects, currentProject, onProjectSelect) {
-    super(app);
-    __publicField(this, "plugin");
-    __publicField(this, "projects");
-    __publicField(this, "onProjectSelect");
-    __publicField(this, "currentProject");
-    this.plugin = plugin;
-    this.projects = projects;
-    this.currentProject = currentProject;
-    this.onProjectSelect = onProjectSelect;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: this.plugin.t("project"), cls: "modal-title" });
-    const projectContainer = contentEl.createDiv({ cls: "project-options-container" });
-    const inboxOption = projectContainer.createEl("div", {
-      text: this.plugin.t("inbox"),
-      cls: "project-option"
-    });
-    if (!this.currentProject) {
-      inboxOption.addClass("selected");
-    }
-    inboxOption.addEventListener("click", () => {
-      this.onProjectSelect("");
-      this.close();
-    });
-    this.projects.forEach((project) => {
-      const projectOption = projectContainer.createEl("div", {
-        text: project.name,
-        cls: "project-option"
-      });
-      if (project.id === this.currentProject) {
-        projectOption.addClass("selected");
-      }
-      projectOption.addEventListener("click", () => {
-        this.onProjectSelect(project.id);
-        this.close();
-      });
-    });
-    const cancelButton = contentEl.createEl("button", {
-      text: this.plugin.t("cancel"),
-      cls: "project-cancel-button"
-    });
-    cancelButton.addEventListener("click", () => this.close());
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-var PriorityPickerModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, currentPriority, onPrioritySelect) {
-    super(app);
-    __publicField(this, "plugin");
-    __publicField(this, "onPrioritySelect");
-    __publicField(this, "currentPriority");
-    this.plugin = plugin;
-    this.currentPriority = currentPriority;
-    this.onPrioritySelect = onPrioritySelect;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: this.plugin.t("priority"), cls: "modal-title" });
-    const priorityContainer = contentEl.createDiv({ cls: "priority-options-container" });
-    const priorities = [
-      { value: 4, key: "p1Urgent" },
-      { value: 3, key: "p2High" },
-      { value: 2, key: "p3Medium" },
-      { value: 1, key: "p4Low" }
-    ];
-    priorities.forEach((priority) => {
-      const priorityOption = priorityContainer.createEl("div", {
-        text: this.plugin.t(priority.key),
-        cls: "priority-option"
-      });
-      if (priority.value === this.currentPriority) {
-        priorityOption.addClass("selected");
-      }
-      priorityOption.addEventListener("click", () => {
-        this.onPrioritySelect(priority.value);
-        this.close();
-      });
-    });
-    const cancelButton = contentEl.createEl("button", {
-      text: this.plugin.t("cancel"),
-      cls: "priority-cancel-button"
-    });
-    cancelButton.addEventListener("click", () => this.close());
-  }
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
-  }
-};
-var DurationPickerModal = class extends import_obsidian.Modal {
-  constructor(app, plugin, onDurationSelect) {
-    super(app);
-    __publicField(this, "plugin");
-    __publicField(this, "onDurationSelect");
-    this.plugin = plugin;
-    this.onDurationSelect = onDurationSelect;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    contentEl.createEl("h3", { text: this.plugin.t("selectDuration"), cls: "modal-title" });
-    const durationContainer = contentEl.createDiv({ cls: "duration-container" });
-    const durations = [
-      { minutes: 15, key: "15min" },
-      { minutes: 30, key: "30min" },
-      { minutes: 45, key: "45min" },
-      { minutes: 60, key: "1hour" },
-      { minutes: 90, key: "1hour30min" },
-      { minutes: 120, key: "2hours" },
-      { minutes: 150, key: "2hours30min" },
-      { minutes: 180, key: "3hours" },
-      { minutes: 240, key: "4hours" },
-      { minutes: 300, key: "5hours" },
-      { minutes: 360, key: "6hours" },
-      { minutes: 420, key: "7hours" },
-      { minutes: 480, key: "8hours" }
-    ];
-    durations.forEach((duration) => {
-      const durationEl = durationContainer.createEl("div", {
-        text: this.plugin.t(duration.key),
-        cls: "duration-option"
-      });
-      durationEl.addEventListener("click", () => {
-        this.onDurationSelect(duration.minutes);
-        this.close();
-      });
-    });
-    const cancelButton = contentEl.createEl("button", {
-      text: this.plugin.t("cancel"),
-      cls: "duration-cancel-button"
     });
     cancelButton.addEventListener("click", () => this.close());
   }
@@ -1472,9 +1257,9 @@ var CreateTaskModal = class extends import_obsidian.Modal {
     this.labels = labels;
     this.createTaskContentField(contentEl);
     this.createDescriptionField(contentEl);
-    this.createInlineSelectors(contentEl);
+    this.createUnifiedSelectors(contentEl);
     this.createDueDateFields(contentEl);
-    this.createReminderLabelsInsert(contentEl);
+    this.createInsertCheckbox(contentEl);
     this.createButtons(contentEl);
   }
   createTaskContentField(contentEl) {
@@ -1501,98 +1286,131 @@ var CreateTaskModal = class extends import_obsidian.Modal {
       this.taskDescription = e.target.value;
     });
   }
-  createInlineSelectors(contentEl) {
-    const inlineContainer = contentEl.createDiv({ cls: "inline-selectors-container" });
+  createUnifiedSelectors(contentEl) {
+    const unifiedContainer = contentEl.createDiv({ cls: "unified-selectors-container" });
     if (this.projects.length > 0) {
-      const projectField = inlineContainer.createDiv({ cls: "inline-selector-field" });
-      const projectButton = projectField.createEl("button", {
-        text: this.getSelectedProjectName() || this.plugin.t("project"),
-        cls: "todoist-button selector-button project-button"
+      const projectSelect = unifiedContainer.createEl("select", {
+        cls: "unified-select project-select"
       });
-      projectButton.addEventListener("click", () => {
-        new ProjectPickerModal(this.app, this.plugin, this.projects, this.selectedProject, (selectedProject) => {
-          this.selectedProject = selectedProject;
-          projectButton.setText(this.getSelectedProjectName() || this.plugin.t("project"));
+      const defaultOption = projectSelect.createEl("option", { text: this.plugin.t("project") });
+      defaultOption.value = "";
+      this.projects.forEach((project) => {
+        const option = projectSelect.createEl("option", { text: project.name });
+        option.value = project.id;
+        if (project.id === this.selectedProject) {
+          option.selected = true;
+        }
+      });
+      projectSelect.addEventListener("change", (e) => {
+        this.selectedProject = e.target.value;
+      });
+    }
+    const prioritySelect = unifiedContainer.createEl("select", {
+      cls: "unified-select priority-select"
+    });
+    const priorities = [
+      { value: 4, key: "p1Urgent", color: "#d1453b" },
+      { value: 3, key: "p2High", color: "#eb8909" },
+      { value: 2, key: "p3Medium", color: "#246fe0" },
+      { value: 1, key: "p4Low", color: "#666666" }
+    ];
+    priorities.forEach((priority) => {
+      const option = prioritySelect.createEl("option", { text: this.plugin.t(priority.key) });
+      option.value = priority.value.toString();
+      option.className = `priority-option-p${priority.value}`;
+      option.style.color = priority.color;
+      option.setAttribute("data-priority-color", priority.color);
+      if (priority.value === this.selectedPriority) {
+        option.selected = true;
+      }
+    });
+    prioritySelect.addEventListener("change", (e) => {
+      this.selectedPriority = parseInt(e.target.value);
+    });
+    const reminderSelect = unifiedContainer.createEl("select", {
+      cls: "unified-select reminder-select"
+    });
+    const reminderOptions = [
+      { value: "", key: "reminder" },
+      { value: "5min", key: "5minBefore" },
+      { value: "15min", key: "15minBefore" },
+      { value: "30min", key: "30minBefore" },
+      { value: "1hour", key: "1hourBefore" },
+      { value: "2hours", key: "2hoursBefore" },
+      { value: "1day", key: "1dayBefore" }
+    ];
+    reminderOptions.forEach((option) => {
+      const optionEl = reminderSelect.createEl("option", { text: this.plugin.t(option.key) });
+      optionEl.value = option.value;
+      if (option.value === this.reminderTime) {
+        optionEl.selected = true;
+      }
+    });
+    reminderSelect.addEventListener("change", (e) => {
+      this.reminderTime = e.target.value;
+    });
+    if (this.labels.length > 0) {
+      this.labelsButton = unifiedContainer.createEl("button", {
+        cls: "unified-button labels-button"
+      });
+      this.updateLabelsDisplay();
+      this.labelsButton.addEventListener("click", () => {
+        new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
+          this.selectedLabels = selectedLabels;
+          this.updateLabelsDisplay();
         }).open();
       });
     }
-    const priorityField = inlineContainer.createDiv({ cls: "inline-selector-field" });
-    const priorityButton = priorityField.createEl("button", {
-      text: this.getSelectedPriorityName(),
-      cls: "todoist-button selector-button priority-button"
-    });
-    priorityButton.addEventListener("click", () => {
-      new PriorityPickerModal(this.app, this.plugin, this.selectedPriority, (selectedPriority) => {
-        this.selectedPriority = selectedPriority;
-        priorityButton.setText(this.getSelectedPriorityName());
-      }).open();
-    });
   }
   createDueDateFields(contentEl) {
-    const datesContainer = contentEl.createDiv({ cls: "date-fields-container" });
-    const dateField = datesContainer.createDiv({ cls: "date-field" });
-    this.dueDateButton = dateField.createEl("button", {
+    const dateFieldsContainer = contentEl.createDiv({ cls: "date-fields-container" });
+    this.dueDateButton = dateFieldsContainer.createEl("button", {
       text: this.dueDate || this.plugin.t("selectDate"),
-      cls: "todoist-button selector-button date-button"
+      cls: "unified-button date-button"
     });
     this.dueDateButton.addEventListener("click", () => {
-      new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
+      new DatePickerModal(this.app, this.plugin, (selectedDate, repeat, duration) => {
         this.dueDate = selectedDate;
         this.repeatOption = repeat || "";
+        this.taskDuration = duration || 0;
         this.dueDateButton.setText(selectedDate);
       }).open();
     });
-    const repeatButton = dateField.createEl("button", {
-      text: this.repeatOption || this.plugin.t("repeat"),
-      cls: "todoist-button selector-button repeat-button"
-    });
-    repeatButton.addEventListener("click", () => {
-      new RepeatPickerModal(this.app, this.plugin, this.repeatOption, (selectedRepeat) => {
-        this.repeatOption = selectedRepeat;
-        repeatButton.setText(selectedRepeat || this.plugin.t("repeat"));
-      }).open();
-    });
-    const dueDateField2 = datesContainer.createDiv({ cls: "date-field" });
-    this.dueDateLimitButton = dueDateField2.createEl("button", {
-      text: this.dueDate || this.plugin.t("deadline"),
-      cls: "todoist-button selector-button due-date-button"
+    this.dueDateLimitButton = dateFieldsContainer.createEl("button", {
+      text: this.plugin.t("deadline"),
+      cls: "unified-button due-date-button"
     });
     this.dueDateLimitButton.addEventListener("click", () => {
-      new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
+      new DatePickerModal(this.app, this.plugin, (selectedDate, repeat, duration) => {
         this.dueDate = selectedDate;
         this.repeatOption = repeat || "";
+        this.taskDuration = duration || 0;
         this.dueDateLimitButton.setText(selectedDate);
       }).open();
     });
-    const timeDurationContainer = contentEl.createDiv({ cls: "time-duration-container" });
     if (this.plugin.settings.enableTimeSelection) {
-      const timeField = timeDurationContainer.createDiv({ cls: "date-field" });
-      this.dueTimeButton = timeField.createEl("button", {
-        text: this.dueTime || this.plugin.t("selectTime"),
-        cls: "todoist-button selector-button time-button"
+      const timeContainer = contentEl.createDiv({ cls: "field-container" });
+      const timeSelect = timeContainer.createEl("select", {
+        cls: "unified-select time-select"
       });
-      this.dueTimeButton.addEventListener("click", () => {
-        new TimePickerModal(this.app, this.plugin, (selectedTime) => {
-          this.dueTime = selectedTime;
-          if (this.dueTimeButton) {
-            this.dueTimeButton.setText(selectedTime);
+      const defaultTimeOption = timeSelect.createEl("option", { text: this.plugin.t("selectTime") });
+      defaultTimeOption.value = "";
+      for (let hour = 0; hour < 24; hour++) {
+        for (let minute = 0; minute < 60; minute += 15) {
+          const timeStr = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+          const option = timeSelect.createEl("option", { text: timeStr });
+          option.value = timeStr;
+          if (timeStr === this.dueTime) {
+            option.selected = true;
           }
-        }).open();
+        }
+      }
+      timeSelect.addEventListener("change", (e) => {
+        this.dueTime = e.target.value;
       });
     } else {
       this.dueTime = "";
     }
-    const durationField = timeDurationContainer.createDiv({ cls: "date-field" });
-    this.durationButton = durationField.createEl("button", {
-      text: this.taskDuration > 0 ? this.formatDuration(this.taskDuration) : this.plugin.t("selectDuration"),
-      cls: "todoist-button selector-button duration-button"
-    });
-    this.durationButton.addEventListener("click", () => {
-      new DurationPickerModal(this.app, this.plugin, (selectedDuration) => {
-        this.taskDuration = selectedDuration;
-        this.durationButton.setText(this.formatDuration(selectedDuration));
-      }).open();
-    });
   }
   formatDuration(minutes) {
     if (minutes < 60) {
@@ -1605,34 +1423,9 @@ var CreateTaskModal = class extends import_obsidian.Modal {
       return `${hours}h ${mins}min`;
     }
   }
-  createReminderLabelsInsert(contentEl) {
-    const container = contentEl.createDiv({ cls: "reminder-labels-insert-container" });
-    const reminderField = container.createDiv({ cls: "reminder-field" });
-    this.reminderButton = reminderField.createEl("button", {
-      text: this.reminderTime || this.plugin.t("reminder"),
-      cls: "todoist-button selector-button reminder-button"
-    });
-    this.reminderButton.addEventListener("click", () => {
-      new ReminderPickerModal(this.app, this.plugin, (selectedReminder) => {
-        this.reminderTime = selectedReminder;
-        this.reminderButton.setText(selectedReminder || this.plugin.t("reminder"));
-      }).open();
-    });
-    if (this.labels.length > 0) {
-      const labelsField = container.createDiv({ cls: "labels-field" });
-      this.labelsButton = labelsField.createEl("button", {
-        cls: "todoist-button selector-button labels-button"
-      });
-      this.updateLabelsDisplay();
-      this.labelsButton.addEventListener("click", () => {
-        new LabelsPickerModal(this.app, this.plugin, this.labels, this.selectedLabels, (selectedLabels) => {
-          this.selectedLabels = selectedLabels;
-          this.updateLabelsDisplay();
-        }).open();
-      });
-    }
-    const insertField = container.createDiv({ cls: "insert-field" });
-    const checkboxContainer = insertField.createDiv({ cls: "inline-checkbox-container" });
+  createInsertCheckbox(contentEl) {
+    const insertContainer = contentEl.createDiv({ cls: "insert-field-container" });
+    const checkboxContainer = insertContainer.createDiv({ cls: "inline-checkbox-container" });
     const insertCheckbox = checkboxContainer.createEl("input", {
       type: "checkbox",
       attr: { id: "insert-task-checkbox" }
@@ -1642,7 +1435,7 @@ var CreateTaskModal = class extends import_obsidian.Modal {
       this.plugin.settings.insertTaskInNote = e.target.checked;
       this.plugin.saveSettings();
     });
-    const insertLabel = checkboxContainer.createEl("label", {
+    checkboxContainer.createEl("label", {
       text: this.plugin.t("insertInNote"),
       cls: "checkbox-label",
       attr: { for: "insert-task-checkbox" }
@@ -1876,6 +1669,14 @@ var TodoistSettingTab = class extends import_obsidian.PluginSettingTab {
     containerEl.createEl("h3", { text: this.plugin.t("consolidatedFilters") });
     new import_obsidian.Setting(containerEl).setName(this.plugin.t("consolidatedNotePath")).setDesc(this.plugin.t("consolidatedNotePathDesc")).addText((text) => text.setPlaceholder("tasks/consolidated-tasks").setValue(this.plugin.settings.consolidatedNotePath).onChange(async (value) => {
       this.plugin.settings.consolidatedNotePath = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName(this.plugin.t("autoRefreshConsolidated")).setDesc(this.plugin.t("autoRefreshConsolidatedDesc")).addToggle((toggle) => toggle.setValue(this.plugin.settings.autoRefreshConsolidated).onChange(async (value) => {
+      this.plugin.settings.autoRefreshConsolidated = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(containerEl).setName(this.plugin.t("consolidatedRefreshInterval")).setDesc(this.plugin.t("consolidatedRefreshIntervalDesc")).addDropdown((dropdown) => dropdown.addOption("60", "1 " + (this.plugin.settings.language === "es" ? "minuto" : "minute")).addOption("300", "5 " + (this.plugin.settings.language === "es" ? "minutos" : "minutes")).addOption("1800", "30 " + (this.plugin.settings.language === "es" ? "minutos" : "minutes")).addOption("3600", "60 " + (this.plugin.settings.language === "es" ? "minutos" : "minutes")).setValue(this.plugin.settings.consolidatedRefreshInterval.toString()).onChange(async (value) => {
+      this.plugin.settings.consolidatedRefreshInterval = parseInt(value);
       await this.plugin.saveSettings();
     }));
     const generateButton = new import_obsidian.Setting(containerEl).setName(this.plugin.t("generateConsolidatedNote")).setDesc("Generate a consolidated note with all Todoist tasks based on filters").addButton((button) => button.setButtonText(this.plugin.t("generateConsolidatedNote")).onClick(() => {

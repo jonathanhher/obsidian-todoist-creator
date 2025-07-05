@@ -157,24 +157,72 @@
     font-style: italic;
 }
 
-/* Botones estilo Todoist más compactos */
-.todoist-button {
-    padding: 9px 12px !important;
+/* =================================================================
+   SISTEMA DE DISEÑO UNIFICADO - TODOIST PLUGIN
+   ================================================================= */
+
+/* Botones unificados base */
+.unified-button {
+    width: 100% !important;
+    padding: 12px !important;
     border: 1px solid var(--background-modifier-border) !important;
     border-radius: 6px !important;
     background: var(--background-primary) !important;
     color: var(--text-normal) !important;
     font-family: var(--font-ui) !important;
-    font-size: 13px !important;
+    font-size: 14px !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
+    height: 44px !important;
     text-align: left !important;
     display: flex !important;
     align-items: center !important;
-    justify-content: space-between !important;
-    width: 100% !important;
+    justify-content: flex-start !important;
     box-sizing: border-box !important;
-    height: 38px !important;
+}
+
+.unified-button:hover {
+    border-color: var(--interactive-accent) !important;
+    background: var(--background-modifier-hover) !important;
+}
+
+.unified-button:focus {
+    outline: none !important;
+    border-color: var(--interactive-accent) !important;
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2) !important;
+}
+
+/* Selectores unificados base */
+.unified-select {
+    width: 100% !important;
+    padding: 12px !important;
+    border: 1px solid var(--background-modifier-border) !important;
+    border-radius: 6px !important;
+    background: var(--background-primary) !important;
+    color: var(--text-normal) !important;
+    font-family: var(--font-ui) !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    height: 44px !important;
+    box-sizing: border-box !important;
+    appearance: none !important;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 12px !important;
+    padding-right: 40px !important;
+}
+
+.unified-select:focus {
+    outline: none !important;
+    border-color: var(--interactive-accent) !important;
+    box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.2) !important;
+}
+
+.unified-select:hover {
+    border-color: var(--interactive-accent) !important;
+    background-color: var(--background-modifier-hover) !important;
 }
 
 .todoist-button:hover {
@@ -182,36 +230,7 @@
     background: rgba(220, 76, 62, 0.05) !important;
 }
 
-/* Botones específicos con colores */
-.date-button {
-    border-color: #ffa726 !important;
-    color: #ffa726 !important;
-}
-
-.due-date-button {
-    border-color: #ef5350 !important;
-    color: #ef5350 !important;
-}
-
-.time-button {
-    border-color: #42a5f5 !important;
-    color: #42a5f5 !important;
-}
-
-.duration-button {
-    border-color: #ab47bc !important;
-    color: #ab47bc !important;
-}
-
-.reminder-button {
-    border-color: #66bb6a !important;
-    color: #66bb6a !important;
-}
-
-.labels-button {
-    border-color: #78909c !important;
-    color: #78909c !important;
-}
+/* Eliminado - ya está cubierto por unified-button */
 
 /* Contenedor para recordatorio, etiquetas e insertar nota - EN LA MISMA LÍNEA */
 .reminder-labels-insert-container {
@@ -392,54 +411,241 @@
     display: none !important;
 }
 
-/* Responsive design for button layout */
-@media (max-width: 480px) {
-    .inline-selectors-container {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-    
-    .date-fields-container {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-    
-    .reminder-labels-insert-container {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-    
-    .date-field {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .date-field .repeat-button {
-        width: 100% !important;
-        max-width: none !important;
-    }
-}
+/* Responsive design for dropdown layout */
+/* Eliminar esta regla duplicada ya que la nueva versión móvil es más completa */
 
-/* Contenedor para selectores en línea - NUEVO - BOTONES SIN LABELS */
-.inline-selectors-container {
+/* Contenedor para selectores unificados */
+.unified-selectors-container {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
-.inline-selector-field {
+/* Eliminado - duplicado arriba */
+
+/* Contenedor de campos de fecha unificado - UNA COLUMNA */
+.date-fields-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.date-field {
     display: flex;
     flex-direction: column;
-    justify-content: center;
 }
 
-/* Labels removed for selector fields */
+/* Campo de insertar nota separado */
+.insert-field-container {
+    margin: 20px 0;
+    padding: 12px;
+    background: var(--background-secondary);
+    border-radius: 6px;
+    border: 1px solid var(--background-modifier-border);
+}
 
-/* Botones de selección - Estilo unificado */
+/* Iconos CSS planos */
+.icon-folder::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    background: var(--text-muted);
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>') no-repeat center;
+    mask-size: contain;
+}
+
+.icon-flag::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>') no-repeat center;
+    mask-size: contain;
+}
+
+.icon-notification::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    background: var(--text-muted);
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>') no-repeat center;
+    mask-size: contain;
+}
+
+.icon-label::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    background: var(--text-muted);
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>') no-repeat center;
+    mask-size: contain;
+}
+
+.icon-calendar::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    background: var(--text-muted);
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>') no-repeat center;
+    mask-size: contain;
+}
+
+.icon-clock::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    background: var(--text-muted);
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39L6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>') no-repeat center;
+    mask-size: contain;
+}
+
+/* =================================================================
+   ICONOS MATERIAL DESIGN PLANOS
+   ================================================================= */
+
+/* Prioridades con colores específicos de bandera - diseño unificado */
+.priority-option-p4 {
+    color: #666666 !important;
+    font-weight: bold !important;
+}
+
+.priority-option-p3 {
+    color: #246fe0 !important;
+    font-weight: bold !important;
+}
+
+.priority-option-p2 {
+    color: #eb8909 !important;
+    font-weight: bold !important;
+}
+
+.priority-option-p1 {
+    color: #d1453b !important;
+    font-weight: bold !important;
+}
+
+/* Icono de bandera para el selector de prioridades */
+.priority-select {
+    position: relative;
+}
+
+.priority-select option {
+    position: relative;
+    padding-left: 20px;
+}
+
+/* =================================================================
+   ICONOS EN SELECTORES Y BOTONES
+   ================================================================= */
+.project-select {
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>'), url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>') !important;
+    background-position: 12px center, right 12px center !important;
+    background-size: 16px, 12px !important;
+    padding-left: 40px !important;
+}
+
+.priority-select {
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z"/></svg>'), url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>') !important;
+    background-position: 12px center, right 12px center !important;
+    background-size: 16px, 12px !important;
+    padding-left: 40px !important;
+}
+
+.reminder-select {
+    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>'), url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>') !important;
+    background-position: 12px center, right 12px center !important;
+    background-size: 16px, 12px !important;
+    padding-left: 40px !important;
+}
+
+/* Botones con iconos - comportamiento fijo sin movimiento en hover */
+.labels-button,
+.date-button,
+.due-date-button {
+    position: relative !important;
+    padding-left: 40px !important;
+}
+
+.labels-button::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: #999 !important;
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M17.63 5.84C17.27 5.33 16.67 5 16 5L5 5.01C3.9 5.01 3 5.9 3 7v10c0 1.1.9 1.99 2 1.99L16 19c.67 0 1.27-.33 1.63-.84L22 12l-4.37-6.16z"/></svg>') no-repeat center !important;
+    mask-size: contain !important;
+}
+
+.date-button::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: #999 !important;
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>') no-repeat center !important;
+    mask-size: contain !important;
+}
+
+.due-date-button::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 16px !important;
+    height: 16px !important;
+    background: #999 !important;
+    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39L6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>') no-repeat center !important;
+    mask-size: contain !important;
+}
+
+/* Eliminado - ya está cubierto por unified-select */
+
+.labels-select {
+    border-color: var(--background-modifier-border) !important;
+    height: auto !important;
+    min-height: 34px !important;
+    max-height: 80px !important;
+    overflow-y: auto !important;
+    padding: 8px 12px !important;
+}
+
+.labels-select:hover,
+.labels-select:focus {
+    border-color: var(--interactive-accent) !important;
+    background-color: var(--background-modifier-hover) !important;
+}
+
+/* Opciones de labels seleccionadas */
+.labels-select option:checked {
+    background: var(--interactive-accent) !important;
+    color: var(--text-on-accent) !important;
+    font-weight: bold !important;
+}
+
+/* Botones de selección - Para fecha y fecha límite que mantienen modal */
 .selector-button {
     width: 100% !important;
-    padding: 10px 12px !important;
+    padding: 8px 10px !important;
     border: 1px solid var(--background-modifier-border) !important;
     border-radius: 6px !important;
     background: var(--background-primary) !important;
@@ -448,7 +654,7 @@
     font-size: 13px !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
-    height: 38px !important;
+    height: 34px !important;
     text-align: left !important;
     display: flex !important;
     align-items: center !important;
@@ -470,109 +676,20 @@
     box-shadow: 0 0 0 2px rgba(220, 76, 62, 0.1) !important;
 }
 
-/* Botones específicos con colores */
-.project-button {
-    border-color: #2196f3 !important;
-    color: #2196f3 !important;
+.selector-button::after {
+    content: '▼' !important;
+    font-size: 10px !important;
+    color: var(--text-muted) !important;
+    margin-left: 8px !important;
 }
 
-.project-button:hover {
-    border-color: #2196f3 !important;
-    background: rgba(33, 150, 243, 0.1) !important;
-}
+/* Eliminado - ya está cubierto por unified-button */
 
-.priority-button {
-    border-color: #ff9800 !important;
-    color: #ff9800 !important;
-}
-
-.priority-button:hover {
-    border-color: #ff9800 !important;
-    background: rgba(255, 152, 0, 0.1) !important;
-}
-
-.date-button {
-    border-color: #4caf50 !important;
-    color: #4caf50 !important;
-}
-
-.date-button:hover {
-    border-color: #4caf50 !important;
-    background: rgba(76, 175, 80, 0.1) !important;
-}
-
-.repeat-button {
-    border-color: #9c27b0 !important;
-    color: #9c27b0 !important;
-}
-
-.repeat-button:hover {
-    border-color: #9c27b0 !important;
-    background: rgba(156, 39, 176, 0.1) !important;
-}
-
-.due-date-button {
-    border-color: #f44336 !important;
-    color: #f44336 !important;
-}
-
-.due-date-button:hover {
-    border-color: #f44336 !important;
-    background: rgba(244, 67, 54, 0.1) !important;
-}
-
-.time-button {
-    border-color: #607d8b !important;
-    color: #607d8b !important;
-}
-
-.time-button:hover {
-    border-color: #607d8b !important;
-    background: rgba(96, 125, 139, 0.1) !important;
-}
-
-.duration-button {
-    border-color: #ab47bc !important;
-    color: #ab47bc !important;
-}
-
-.duration-button:hover {
-    border-color: #ab47bc !important;
-    background: rgba(171, 71, 188, 0.1) !important;
-}
-
-.reminder-button {
-    border-color: #66bb6a !important;
-    color: #66bb6a !important;
-}
-
-.reminder-button:hover {
-    border-color: #66bb6a !important;
-    background: rgba(102, 187, 106, 0.1) !important;
-}
-
-.labels-button {
-    border-color: #78909c !important;
-    color: #78909c !important;
-}
-
-.labels-button:hover {
-    border-color: #78909c !important;
-    background: rgba(120, 144, 156, 0.1) !important;
-}
-
-/* Contenedor de fecha con repeat button al lado */
+/* Contenedor de fecha */
 .date-field {
     display: flex !important;
-    gap: 8px !important;
-    align-items: center !important;
-}
-
-.date-field .repeat-button {
-    flex-shrink: 0 !important;
-    width: auto !important;
-    min-width: 80px !important;
-    max-width: 120px !important;
+    flex-direction: column !important;
+    gap: 4px !important;
 }
 
 /* Selectores inline más pequeños - DEPRECATED */
@@ -694,6 +811,53 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     margin-bottom: 16px;
+}
+
+/* Botones de fecha en columna para diseño compacto */
+.date-quick-options-column {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+    max-width: 200px;
+}
+
+/* Contenedor para opciones de repetir y duración unificado - UNA COLUMNA */
+.date-options-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+/* Estilos para selectores de repetir y duración en el modal de fecha */
+.repeat-select,
+.duration-select {
+    background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><path fill="%23666" d="M2 0L0 2h4zm0 5L0 3h4z"/></svg>') !important;
+    background-repeat: no-repeat !important;
+    background-position: right 12px center !important;
+    background-size: 12px !important;
+    padding-right: 35px !important;
+}
+
+/* Asegurar que todos los elementos mantengan iconos fijos en hover */
+.unified-button:hover::before,
+.unified-select:hover {
+    /* Los iconos no cambian de posición en hover */
+}
+
+/* Prevenir movimiento de iconos en todos los elementos */
+.unified-button,
+.unified-select {
+    background-attachment: fixed;
+}
+
+.labels-button:hover::before,
+.date-button:hover::before,
+.due-date-button:hover::before {
+    /* Mantener posición fija del icono en hover */
+    left: 12px !important;
+    transform: translateY(-50%) !important;
 }
 
 .date-quick-button {
@@ -1112,17 +1276,38 @@
     font-size: 12px;
 }
 
-/* Responsive design mejorado */
+/* Responsive design mejorado para COMPATIBILIDAD MÓVIL COMPLETA */
 @media (max-width: 600px) {
     .todoist-modal {
         width: 95vw;
-        padding: 16px;
+        padding: 12px;
+        max-height: 90vh;
     }
     
-    .date-fields-container,
-    .time-duration-container {
-        grid-template-columns: 1fr;
-        gap: 8px;
+    .modal-title {
+        font-size: 16px;
+        margin-bottom: 16px;
+    }
+    
+    /* Campos de entrada más táctiles */
+    .task-input {
+        height: 44px !important;
+        font-size: 16px !important;
+        padding: 12px !important;
+    }
+    
+    .description-textarea {
+        font-size: 16px !important;
+        padding: 12px !important;
+        min-height: 60px !important;
+    }
+    
+    /* Dropdowns más táctiles */
+    .todoist-select {
+        height: 44px !important;
+        font-size: 16px !important;
+        padding: 12px !important;
+        padding-right: 35px !important;
     }
     
     /* Selectores inline en móvil - en columna */
@@ -1134,51 +1319,137 @@
     /* Recordatorio, etiquetas e insertar en móvil - en columna */
     .reminder-labels-insert-container {
         grid-template-columns: 1fr !important;
-        gap: 10px;
+        gap: 12px;
     }
     
-    /* Etiquetas más compactas en móvil */
-    .inline-labels-list {
-        max-height: 50px !important;
-        font-size: 11px !important;
+    /* Labels select en móvil */
+    .labels-select {
+        max-height: 120px !important;
+        min-height: 44px !important;
     }
     
-    .inline-label-tag {
-        font-size: 9px !important;
-        padding: 1px 4px !important;
+    /* Checkbox más táctil en móvil */
+    .inline-checkbox-container {
+        height: 44px !important;
+        padding: 12px !important;
     }
     
-    /* Checkbox más compacto en móvil */
+    .inline-checkbox-container input[type="checkbox"] {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
     .inline-checkbox-container .checkbox-label {
-        font-size: 11px !important;
+        font-size: 14px !important;
     }
     
-    .labels-picker-container {
-        grid-template-columns: 1fr;
-        max-height: 140px;
-    }
-    
+    /* Calendario más grande en móvil */
     .calendar-container {
-        max-width: 280px;
+        max-width: 95vw;
+        width: 100%;
     }
     
     .calendar-grid {
-        gap: 1px;
-        padding: 6px;
+        gap: 2px;
+        padding: 8px;
     }
     
     .calendar-day {
-        padding: 6px 2px;
-        font-size: 11px;
-        min-height: 24px;
+        padding: 12px 4px;
+        font-size: 14px;
+        min-height: 40px;
     }
     
-    .date-quick-options {
+    /* Botones de fecha en columna para móvil */
+    .date-quick-options,
+    .date-quick-options-column {
         grid-template-columns: 1fr;
+        gap: 8px;
     }
     
+    .date-quick-button {
+        padding: 12px !important;
+        font-size: 16px !important;
+        height: 44px !important;
+    }
+    
+    /* Duración en móvil */
     .duration-container {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+        max-height: 200px;
+    }
+    
+    .duration-option {
+        padding: 12px;
+        font-size: 14px;
+    }
+    
+    /* Botones de acción más grandes */
+    .cancel-button,
+    .create-button {
+        padding: 14px 24px !important;
+        font-size: 16px !important;
+        height: 48px !important;
+    }
+    
+    /* Campos de entrada con label más espaciados */
+    .field-container {
+        margin-bottom: 20px;
+    }
+    
+    .field-label {
+        font-size: 14px;
+        margin-bottom: 8px;
+    }
+    
+    /* Selectores unificados en móvil */
+    .unified-selectors-container {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    
+    .unified-select {
+        height: 48px !important;
+        font-size: 16px !important;
+        padding: 14px !important;
+        padding-right: 45px !important;
+    }
+    
+    .unified-button {
+        height: 48px !important;
+        font-size: 16px !important;
+        padding: 14px !important;
+    }
+    
+    /* Campos de fecha en móvil */
+    .date-fields-container {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    
+    /* Campo de insertar en móvil */
+    .insert-field-container {
+        margin: 16px 0;
+        padding: 16px;
+    }
+}
+
+/* Compatibilidad con pantallas muy pequeñas */
+@media (max-width: 400px) {
+    .todoist-modal {
+        width: 98vw;
+        padding: 8px;
+    }
+    
+    .calendar-day {
+        padding: 8px 2px;
+        font-size: 12px;
+        min-height: 32px;
+    }
+    
+    .date-quick-button {
+        padding: 10px !important;
+        font-size: 14px !important;
     }
 }
 

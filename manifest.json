@@ -1,9 +1,9 @@
 {
-    "id": "obsidian-todoist-creator",
+    "id": "todoist-task-creator",
     "name": "Todoist Task Creator",
-    "version": "2.2.1",
+    "version": "2.4.0",
     "minAppVersion": "0.15.0",
-    "description": "Crea tareas completas en Todoist desde Obsidian con interfaz compacta, función Repetir independiente, calendario, prioridades, recordatorios y soporte multiidioma",
+    "description": "Plugin profesional para Todoist con Material Design, iconos CSS planos, interfaz unificada y compatibilidad móvil completa",
     "author": "Jonathan Hernandez",
     "authorUrl": "https://github.com/jonathanhher",
     "fundingUrl": "",

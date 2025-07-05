@@ -2,7 +2,7 @@
 
 Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en Todoist directamente desde tus notas con todas las funcionalidades avanzadas de Todoist, tareas repetitivas, nota consolidada y un diseño optimizado.
 
-![Plugin Version](https://img.shields.io/badge/version-2.2.0-blue)
+![Plugin Version](https://img.shields.io/badge/version-2.2.1-blue)
 ![Obsidian](https://img.shields.io/badge/obsidian-compatible-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Author](https://img.shields.io/badge/author-Jonathan%20Hernandez-orange)
@@ -82,35 +82,50 @@ Un plugin avanzado y multiidioma para Obsidian que te permite crear tareas en To
 
 ### 🎨 Interfaz Optimizada
 
-#### **Layout Compacto:**
+#### **Layout Ultra-Compacto v2.2.1:**
 ```
 ┌─────────────────────────────────────┐
 │ Nombre de la tarea                  │
 │ Descripción                         │
-│ Proyecto        │ Prioridad         │
-│ Fecha          │ Fecha Límite       │
-│ Hora           │ Duración           │
-│ Recordatorio   │ Etiquetas │ Insert │
+│ [Proyecto]      │ [Prioridad]       │
+│ [Fecha] [Repetir] │ [Fecha Límite]  │
+│ [Hora]          │ [Duración]        │
+│ [Recordatorio] │ [Etiquetas] │☑Insert│
 │ [Cancelar]        [Crear Tarea]     │
 └─────────────────────────────────────┘
 ```
+
+**🎯 Mejoras de la interfaz:**
+- **Sin etiquetas**: Botones auto-descriptivos sin labels adicionales
+- **Más espacio**: Diseño vertical optimizado
+- **Identificación visual**: Cada botón tiene color específico
+- **Función Repetir**: Botón independiente junto a Fecha
 
 #### **Campos del Formulario:**
 
 **📋 Obligatorios:**
 - **Contenido**: Descripción principal de la tarea
 
-**📄 Opcionales:**
+**📄 Opcionales (interfaz de botones):**
 - **Descripción**: Información adicional (campo compacto)
-- **Proyecto**: Selecciona de tus proyectos de Todoist
-- **Prioridad**: P1 (Urgente), P2 (Alta), P3 (Media), P4 (Baja)
-- **Fecha**: Campo genérico para programación
-- **Fecha Límite**: Deadline específico
-- **Hora**: Selector cada 15 minutos (00:00, 00:15, 00:30...)
-- **Duración**: 15min a 8 horas
-- **Recordatorio**: Alertas antes del vencimiento
-- **Etiquetas**: Lista visual con colores preservados
-- **Insertar en nota**: Checkbox para incluir referencia
+- **[Proyecto]**: Botón azul - despliega lista de proyectos
+- **[Prioridad]**: Botón naranja - P1 a P4 con colores
+- **[Fecha]**: Botón verde - calendario y opciones rápidas
+- **[Repetir]**: Botón morado - opciones de recurrencia
+- **[Fecha Límite]**: Botón rojo - deadline específico
+- **[Hora]**: Botón gris - selector cada 15 minutos (si habilitado)
+- **[Duración]**: Botón morado - 15min a 8 horas
+- **[Recordatorio]**: Botón verde - alertas configurables
+- **[Etiquetas]**: Botón gris - selección múltiple
+- **☑ Insertar en nota**: Checkbox compacto sin label
+
+**🎨 Identificación por colores:**
+- 🔵 **Azul**: Proyecto
+- 🟠 **Naranja**: Prioridad  
+- 🟢 **Verde**: Fecha y Recordatorio
+- 🟣 **Morado**: Repetir y Duración
+- 🔴 **Rojo**: Fecha Límite
+- ⚫ **Gris**: Hora y Etiquetas
 
 ### 📅 Selector de Fecha Mejorado
 
@@ -140,19 +155,28 @@ Configura tiempo estimado de completación:
 - **1-2 horas**: Tareas estándar  
 - **3-8 horas**: Proyectos extensos
 
-### 🔄 Tareas Recurrentes con #repeattodo
+### 🔄 Función de Repetir **NUEVO** v2.2.1
 
-Crea tareas que se repiten automáticamente:
-- **Diariamente**: Cada día
-- **Semanalmente**: Mismo día cada semana
-- **Días laborales**: Lunes a Viernes únicamente
-- **Mensualmente**: Mismo día cada mes
-- **Anualmente**: Fechas especiales
+**🔘 Botón independiente de repetición:**
+Ahora junto al botón "Fecha" encontrarás un botón "Repetir" separado que te permite configurar tareas recurrentes de forma más intuitiva.
 
-**Características especiales:**
-- **🏷️ Etiqueta automática**: Las tareas repetitivas reciben automáticamente el tag `#repeattodo`
-- **🔄 Identificación clara**: Fácil diferenciación entre tareas normales y repetitivas
-- **📋 Plantilla personalizable**: Formato específico para tareas recurrentes
+**🎯 Opciones disponibles:**
+- **Cada día**: Repetición diaria
+- **Cada semana**: Mismo día cada semana
+- **Cada día laboral**: Solo lunes a viernes
+- **Cada mes**: Mismo día cada mes
+- **Cada año**: Fechas especiales anuales
+
+**💡 Ventajas del nuevo diseño:**
+- **🔘 Acceso directo**: Un clic en "Repetir" abre las opciones
+- **👁️ Visibilidad clara**: Estado de repetición siempre visible
+- **⚡ Configuración rápida**: Modal específico para repeticiones
+- **🎨 Identificación visual**: Botón morado distintivo
+
+**🏷️ Funcionalidad automática:**
+- **#repeattodo**: Etiqueta automática en tareas repetitivas
+- **🔄 Sincronización**: Compatible con Todoist nativo
+- **📋 Plantilla específica**: Formato personalizable para recurrentes
 
 ### 📋 Nota Consolidada **NUEVO** v2.2
 
@@ -329,6 +353,16 @@ obsidian-todoist-creator/
 
 ## 🏆 Changelog
 
+### v2.2.1 - Interfaz Compacta y Función de Repetir 🎨
+- 🔄 **NUEVO**: Botón "Repetir" independiente junto al botón de fecha con opciones: Cada día, Cada semana, Cada día laboral, Cada mes, Cada año
+- 🎨 **NUEVO**: Interfaz completamente rediseñada con botones sin etiquetas para mayor compacidad
+- 🔘 **NUEVO**: Proyecto, Prioridad, Fecha, Fecha Límite, Duración como botones desplegables
+- 📱 **OPTIMIZADO**: Interfaz más compacta - eliminadas etiquetas de Recordatorio, Etiquetas e Insertar Nota
+- ⚡ **MEJORADO**: Experiencia de usuario más fluida con modales específicos para cada selección
+- 🎯 **MEJORADO**: Diseño responsive optimizado para móvil y desktop
+- 🎨 **MEJORADO**: Códigos de colores específicos para cada tipo de botón
+- 📏 **OPTIMIZADO**: Uso eficiente del espacio vertical en el formulario
+
 ### v2.2.0 - Release con Tareas Repetitivas y Nota Consolidada 🚀
 - 🔄 **NUEVO**: Tareas repetitivas con etiqueta #repeattodo automática
 - 📋 **NUEVO**: Funcionalidad de nota consolidada con filtros por proyecto y etiquetas
@@ -392,7 +426,7 @@ Si encuentras problemas o tienes sugerencias:
 
 - 📋 **Revisa la sección de solución de problemas**
 - 🔗 **Verifica que el indicador de API esté verde**
-- 📦 **Confirma que tienes la última versión v2.2**
+- 📦 **Confirma que tienes la última versión v2.2.1**
 - 🐛 **Abre un issue** con detalles del problema
 
 ## 🌟 Características Destacadas v2.2
@@ -415,10 +449,10 @@ Si encuentras problemas o tienes sugerencias:
 
 ---
 
-**¡Plugin completamente optimizado con tareas repetitivas y nota consolidada! 🚀✨**
+**¡Plugin completamente optimizado con interfaz compacta y función Repetir independiente! 🚀✨**
 
 > *Desarrollado con ❤️ por Jonathan Hernandez para la comunidad de Obsidian*
 > 
 > **Repositorio**: [https://github.com/jonathanhher/obsidian-todoist-creator](https://github.com/jonathanhher/obsidian-todoist-creator)
 > 
-> **Versión actual**: 2.2.0 - Con tareas repetitivas y nota consolidada
+> **Versión actual**: 2.2.1 - Interfaz compacta con función Repetir independiente

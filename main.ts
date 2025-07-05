@@ -59,6 +59,7 @@ const translations = {
         'dueTime': 'Due Time (optional)',
         'duration': 'Duration (optional)',
         'reminder': 'Reminder',
+        'repeat': 'Repeat',
         'labels': 'Labels',
         'insertInNote': 'Insert in note',
         'cancel': 'Cancel',
@@ -171,7 +172,8 @@ const translations = {
         'deadline': 'Fecha Límite',
         'dueTime': 'Hora Límite (opcional)',
         'duration': 'Duración (opcional)',
-        'reminder': 'Recordatorio (opcional)',
+        'reminder': 'Recordatorio',
+        'repeat': 'Repetir',
         'labels': 'Etiquetas',
         'insertInNote': 'Insertar en nota',
         'cancel': 'Cancelar',
@@ -1497,6 +1499,181 @@ class ReminderPickerModal extends Modal {
     }
 }
 
+class RepeatPickerModal extends Modal {
+    plugin: TodoistPlugin;
+    onRepeatSelect: (repeat: string) => void;
+    currentRepeat: string;
+
+    constructor(app: App, plugin: TodoistPlugin, currentRepeat: string, onRepeatSelect: (repeat: string) => void) {
+        super(app);
+        this.plugin = plugin;
+        this.currentRepeat = currentRepeat;
+        this.onRepeatSelect = onRepeatSelect;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: this.plugin.t('repeat'), cls: 'modal-title' });
+
+        const repeatContainer = contentEl.createDiv({ cls: 'repeat-options-container' });
+
+        const repeatOptions = [
+            { value: '', key: 'noRepeat' },
+            { value: 'every day', key: 'daily' },
+            { value: 'every week', key: 'weekly' },
+            { value: 'every weekday', key: 'weekdays' },
+            { value: 'every month', key: 'monthly' },
+            { value: 'every year', key: 'yearly' }
+        ];
+
+        repeatOptions.forEach(option => {
+            const optionEl = repeatContainer.createEl('div', { 
+                text: this.plugin.t(option.key),
+                cls: 'repeat-option'
+            });
+            
+            if (option.value === this.currentRepeat) {
+                optionEl.addClass('selected');
+            }
+
+            optionEl.addEventListener('click', () => {
+                this.onRepeatSelect(option.value);
+                this.close();
+            });
+        });
+
+        const cancelButton = contentEl.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'repeat-cancel-button'
+        });
+        cancelButton.addEventListener('click', () => this.close());
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+class ProjectPickerModal extends Modal {
+    plugin: TodoistPlugin;
+    projects: TodoistProject[];
+    onProjectSelect: (projectId: string) => void;
+    currentProject: string;
+
+    constructor(app: App, plugin: TodoistPlugin, projects: TodoistProject[], currentProject: string, onProjectSelect: (projectId: string) => void) {
+        super(app);
+        this.plugin = plugin;
+        this.projects = projects;
+        this.currentProject = currentProject;
+        this.onProjectSelect = onProjectSelect;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: this.plugin.t('project'), cls: 'modal-title' });
+
+        const projectContainer = contentEl.createDiv({ cls: 'project-options-container' });
+
+        // Opción de Inbox
+        const inboxOption = projectContainer.createEl('div', { 
+            text: this.plugin.t('inbox'),
+            cls: 'project-option'
+        });
+        
+        if (!this.currentProject) {
+            inboxOption.addClass('selected');
+        }
+
+        inboxOption.addEventListener('click', () => {
+            this.onProjectSelect('');
+            this.close();
+        });
+
+        // Proyectos del usuario
+        this.projects.forEach(project => {
+            const projectOption = projectContainer.createEl('div', { 
+                text: project.name,
+                cls: 'project-option'
+            });
+            
+            if (project.id === this.currentProject) {
+                projectOption.addClass('selected');
+            }
+
+            projectOption.addEventListener('click', () => {
+                this.onProjectSelect(project.id);
+                this.close();
+            });
+        });
+
+        const cancelButton = contentEl.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'project-cancel-button'
+        });
+        cancelButton.addEventListener('click', () => this.close());
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
+class PriorityPickerModal extends Modal {
+    plugin: TodoistPlugin;
+    onPrioritySelect: (priority: number) => void;
+    currentPriority: number;
+
+    constructor(app: App, plugin: TodoistPlugin, currentPriority: number, onPrioritySelect: (priority: number) => void) {
+        super(app);
+        this.plugin = plugin;
+        this.currentPriority = currentPriority;
+        this.onPrioritySelect = onPrioritySelect;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h3', { text: this.plugin.t('priority'), cls: 'modal-title' });
+
+        const priorityContainer = contentEl.createDiv({ cls: 'priority-options-container' });
+
+        const priorities = [
+            { value: 4, key: 'p1Urgent' },
+            { value: 3, key: 'p2High' },
+            { value: 2, key: 'p3Medium' },
+            { value: 1, key: 'p4Low' }
+        ];
+
+        priorities.forEach(priority => {
+            const priorityOption = priorityContainer.createEl('div', { 
+                text: this.plugin.t(priority.key),
+                cls: 'priority-option'
+            });
+            
+            if (priority.value === this.currentPriority) {
+                priorityOption.addClass('selected');
+            }
+
+            priorityOption.addEventListener('click', () => {
+                this.onPrioritySelect(priority.value);
+                this.close();
+            });
+        });
+
+        const cancelButton = contentEl.createEl('button', { 
+            text: this.plugin.t('cancel'),
+            cls: 'priority-cancel-button'
+        });
+        cancelButton.addEventListener('click', () => this.close());
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
+    }
+}
+
 class DurationPickerModal extends Modal {
     plugin: TodoistPlugin;
     onDurationSelect: (duration: number) => void;
@@ -1636,64 +1813,45 @@ class CreateTaskModal extends Modal {
     createInlineSelectors(contentEl: HTMLElement) {
         const inlineContainer = contentEl.createDiv({ cls: 'inline-selectors-container' });
         
-        // Proyecto y Prioridad en la primera fila
+        // Proyecto y Prioridad como botones
         if (this.projects.length > 0) {
             const projectField = inlineContainer.createDiv({ cls: 'inline-selector-field' });
-            projectField.createEl('label', { text: this.plugin.t('project'), cls: 'field-label' });
-            
-            const projectSelect = projectField.createEl('select', { cls: 'inline-project-select' });
-            
-            const defaultOption = projectSelect.createEl('option', { text: this.plugin.t('inbox') });
-            defaultOption.value = '';
-            
-            this.projects.forEach(project => {
-                const option = projectSelect.createEl('option', { text: project.name });
-                option.value = project.id;
-                if (project.id === this.selectedProject) {
-                    option.selected = true;
-                }
+            const projectButton = projectField.createEl('button', { 
+                text: this.getSelectedProjectName() || this.plugin.t('project'),
+                cls: 'todoist-button selector-button project-button'
             });
             
-            projectSelect.addEventListener('change', (e) => {
-                this.selectedProject = (e.target as HTMLSelectElement).value;
+            projectButton.addEventListener('click', () => {
+                new ProjectPickerModal(this.app, this.plugin, this.projects, this.selectedProject, (selectedProject) => {
+                    this.selectedProject = selectedProject;
+                    projectButton.setText(this.getSelectedProjectName() || this.plugin.t('project'));
+                }).open();
             });
         }
 
         const priorityField = inlineContainer.createDiv({ cls: 'inline-selector-field' });
-        priorityField.createEl('label', { text: this.plugin.t('priority'), cls: 'field-label' });
-        
-        const prioritySelect = priorityField.createEl('select', { cls: 'inline-priority-select' });
-        
-        const priorities = [
-            { value: 4, key: 'p1Urgent' },
-            { value: 3, key: 'p2High' },
-            { value: 2, key: 'p3Medium' },
-            { value: 1, key: 'p4Low' }
-        ];
-        
-        priorities.forEach(priority => {
-            const option = prioritySelect.createEl('option', { text: this.plugin.t(priority.key) });
-            option.value = priority.value.toString();
-            if (priority.value === this.selectedPriority) {
-                option.selected = true;
-            }
+        const priorityButton = priorityField.createEl('button', { 
+            text: this.getSelectedPriorityName(),
+            cls: 'todoist-button selector-button priority-button'
         });
         
-        prioritySelect.addEventListener('change', (e) => {
-            this.selectedPriority = parseInt((e.target as HTMLSelectElement).value);
+        priorityButton.addEventListener('click', () => {
+            new PriorityPickerModal(this.app, this.plugin, this.selectedPriority, (selectedPriority) => {
+                this.selectedPriority = selectedPriority;
+                priorityButton.setText(this.getSelectedPriorityName());
+            }).open();
         });
     }
 
     createDueDateFields(contentEl: HTMLElement) {
-        // Contenedor para los dos campos de fecha
+        // Contenedor para los campos de fecha
         const datesContainer = contentEl.createDiv({ cls: 'date-fields-container' });
         
         // Campo de Fecha
         const dateField = datesContainer.createDiv({ cls: 'date-field' });
-        dateField.createEl('label', { text: this.plugin.t('selectDate'), cls: 'field-label' });
         this.dueDateButton = dateField.createEl('button', { 
             text: this.dueDate || this.plugin.t('selectDate'),
-            cls: 'todoist-button date-button'
+            cls: 'todoist-button selector-button date-button'
         });
         this.dueDateButton.addEventListener('click', () => {
             new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
@@ -1703,12 +1861,23 @@ class CreateTaskModal extends Modal {
             }).open();
         });
 
+        // Botón de Repetir junto al de Fecha
+        const repeatButton = dateField.createEl('button', { 
+            text: this.repeatOption || this.plugin.t('repeat'),
+            cls: 'todoist-button selector-button repeat-button'
+        });
+        repeatButton.addEventListener('click', () => {
+            new RepeatPickerModal(this.app, this.plugin, this.repeatOption, (selectedRepeat) => {
+                this.repeatOption = selectedRepeat;
+                repeatButton.setText(selectedRepeat || this.plugin.t('repeat'));
+            }).open();
+        });
+
         // Campo de Fecha Límite (Due Date)
-        const dueDateField = datesContainer.createDiv({ cls: 'date-field' });
-        dueDateField.createEl('label', { text: this.plugin.t('deadline'), cls: 'field-label' });
-        this.dueDateLimitButton = dueDateField.createEl('button', { 
+        const dueDateField2 = datesContainer.createDiv({ cls: 'date-field' });
+        this.dueDateLimitButton = dueDateField2.createEl('button', { 
             text: this.dueDate || this.plugin.t('deadline'),
-            cls: 'todoist-button due-date-button'
+            cls: 'todoist-button selector-button due-date-button'
         });
         this.dueDateLimitButton.addEventListener('click', () => {
             new DatePickerModal(this.app, this.plugin, (selectedDate, repeat) => {
@@ -1724,10 +1893,9 @@ class CreateTaskModal extends Modal {
         // Campo de Tiempo (solo si está habilitado)
         if (this.plugin.settings.enableTimeSelection) {
             const timeField = timeDurationContainer.createDiv({ cls: 'date-field' });
-            timeField.createEl('label', { text: this.plugin.t('selectTime'), cls: 'field-label' });
             this.dueTimeButton = timeField.createEl('button', { 
                 text: this.dueTime || this.plugin.t('selectTime'),
-                cls: 'todoist-button time-button'
+                cls: 'todoist-button selector-button time-button'
             });
             this.dueTimeButton.addEventListener('click', () => {
                 new TimePickerModal(this.app, this.plugin, (selectedTime) => {
@@ -1744,10 +1912,9 @@ class CreateTaskModal extends Modal {
         
         // Campo de Duración
         const durationField = timeDurationContainer.createDiv({ cls: 'date-field' });
-        durationField.createEl('label', { text: this.plugin.t('selectDuration'), cls: 'field-label' });
         this.durationButton = durationField.createEl('button', { 
             text: this.taskDuration > 0 ? this.formatDuration(this.taskDuration) : this.plugin.t('selectDuration'),
-            cls: 'todoist-button duration-button'
+            cls: 'todoist-button selector-button duration-button'
         });
         this.durationButton.addEventListener('click', () => {
             new DurationPickerModal(this.app, this.plugin, (selectedDuration) => {
@@ -1772,29 +1939,27 @@ class CreateTaskModal extends Modal {
     createReminderLabelsInsert(contentEl: HTMLElement) {
         const container = contentEl.createDiv({ cls: 'reminder-labels-insert-container' });
         
-        // Campo de Recordatorio
+        // Campo de Recordatorio (sin label)
         const reminderField = container.createDiv({ cls: 'reminder-field' });
-        reminderField.createEl('label', { text: this.plugin.t('reminder'), cls: 'field-label' });
         
         this.reminderButton = reminderField.createEl('button', {
-            text: this.reminderTime || this.plugin.t('noReminder'),
-            cls: 'inline-reminder-button'
+            text: this.reminderTime || this.plugin.t('reminder'),
+            cls: 'todoist-button selector-button reminder-button'
         });
         
         this.reminderButton.addEventListener('click', () => {
             new ReminderPickerModal(this.app, this.plugin, (selectedReminder) => {
                 this.reminderTime = selectedReminder;
-                this.reminderButton.setText(selectedReminder || this.plugin.t('noReminder'));
+                this.reminderButton.setText(selectedReminder || this.plugin.t('reminder'));
             }).open();
         });
 
-        // Campo de Etiquetas (como lista)
+        // Campo de Etiquetas (sin label)
         if (this.labels.length > 0) {
             const labelsField = container.createDiv({ cls: 'labels-field' });
-            labelsField.createEl('label', { text: this.plugin.t('labels'), cls: 'field-label' });
             
-            this.labelsButton = labelsField.createEl('div', {
-                cls: 'inline-labels-list empty'
+            this.labelsButton = labelsField.createEl('button', {
+                cls: 'todoist-button selector-button labels-button'
             });
             
             this.updateLabelsDisplay();
@@ -1807,9 +1972,8 @@ class CreateTaskModal extends Modal {
             });
         }
 
-        // Campo de Insertar en Nota
+        // Campo de Insertar en Nota (sin label)
         const insertField = container.createDiv({ cls: 'insert-field' });
-        insertField.createEl('label', { text: this.plugin.t('insertInNote'), cls: 'field-label' });
         
         const checkboxContainer = insertField.createDiv({ cls: 'inline-checkbox-container' });
         
@@ -1824,7 +1988,7 @@ class CreateTaskModal extends Modal {
         });
         
         const insertLabel = checkboxContainer.createEl('label', { 
-            text: 'Insertar',
+            text: this.plugin.t('insertInNote'),
             cls: 'checkbox-label',
             attr: { for: 'insert-task-checkbox' }
         });
@@ -1833,39 +1997,31 @@ class CreateTaskModal extends Modal {
     updateLabelsDisplay() {
         if (!this.labelsButton) return;
         
-        this.labelsButton.empty();
-        
         if (this.selectedLabels.length === 0) {
-            this.labelsButton.addClass('empty');
             this.labelsButton.setText(this.plugin.t('labels'));
         } else {
-            this.labelsButton.removeClass('empty');
-            
-            this.selectedLabels.forEach(labelName => {
-                const labelTag = this.labelsButton.createEl('span', {
-                    text: labelName,
-                    cls: 'inline-label-tag'
-                });
-                
-                // Aplicar color de la etiqueta
-                const label = this.labels.find(l => l.name === labelName);
-                if (label?.color) {
-                    labelTag.style.backgroundColor = `${label.color}20`;
-                    labelTag.style.borderColor = label.color;
-                    labelTag.style.color = label.color;
-                }
-            });
-            
-            // Si hay muchas etiquetas, agregar indicador
-            if (this.selectedLabels.length > 3) {
-                const moreIndicator = this.labelsButton.createEl('span', {
-                    text: '...',
-                    cls: 'inline-label-tag'
-                });
-                moreIndicator.style.backgroundColor = 'var(--background-modifier-border)';
-                moreIndicator.style.color = 'var(--text-muted)';
-            }
+            const labelText = this.selectedLabels.length === 1 
+                ? this.selectedLabels[0] 
+                : `${this.selectedLabels.length} ${this.plugin.t('labels')}`;
+            this.labelsButton.setText(labelText);
         }
+    }
+
+    getSelectedProjectName(): string {
+        if (!this.selectedProject) return '';
+        const project = this.projects.find(p => p.id === this.selectedProject);
+        return project ? project.name : '';
+    }
+
+    getSelectedPriorityName(): string {
+        const priorities = [
+            { value: 4, key: 'p1Urgent' },
+            { value: 3, key: 'p2High' },
+            { value: 2, key: 'p3Medium' },
+            { value: 1, key: 'p4Low' }
+        ];
+        const priority = priorities.find(p => p.value === this.selectedPriority);
+        return priority ? this.plugin.t(priority.key) : this.plugin.t('p4Low');
     }
 
     createReminderField(contentEl: HTMLElement) {

@@ -1,9 +1,9 @@
 {
     "id": "obsidian-todoist-creator",
     "name": "Todoist Task Creator",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "minAppVersion": "0.15.0",
-    "description": "Crea tareas completas en Todoist desde Obsidian con calendario, prioridades, recordatorios, tareas repetitivas, nota consolidada y soporte multiidioma",
+    "description": "Crea tareas completas en Todoist desde Obsidian con interfaz compacta, función Repetir independiente, calendario, prioridades, recordatorios y soporte multiidioma",
     "author": "Jonathan Hernandez",
     "authorUrl": "https://github.com/jonathanhher",
     "fundingUrl": "",

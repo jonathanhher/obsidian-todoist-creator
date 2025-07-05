@@ -1,7 +1,7 @@
 {
     "name": "obsidian-todoist-creator",
-    "version": "2.2.0",
-    "description": "Plugin completo de Obsidian para crear tareas en Todoist con tareas repetitivas, nota consolidada y todas las funcionalidades avanzadas",
+    "version": "2.2.1",
+    "description": "Plugin completo de Obsidian para crear tareas en Todoist con interfaz compacta, función Repetir independiente, tareas repetitivas, nota consolidada y todas las funcionalidades avanzadas",
     "main": "main.js",
     "scripts": {
         "dev": "node esbuild.config.mjs",
@@ -20,7 +20,9 @@
         "calendar",
         "multilanguage",
         "repetitive-tasks",
-        "consolidated-note"
+        "consolidated-note",
+        "compact-interface",
+        "repeat-function"
     ],
     "author": "Jonathan Hernandez",
     "homepage": "https://github.com/jonathanhher/obsidian-todoist-creator",
